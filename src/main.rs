@@ -2,9 +2,11 @@
 #![allow(unused_imports)]
 
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::io::{BufWriter, Write};
 use std::fs::OpenOptions;
-use std::sync::Arc;
+use std::path::Path;
+use std::sync::{Arc, Mutex};
 
 use select::predicate::{Class, Name, Predicate};
 use indicatif::{ProgressBar, ProgressStyle};
@@ -12,6 +14,8 @@ use serde::{Deserialize, Serialize};
 use select::document::Document;
 use anyhow::{Context, Result};
 use reqwest::{header, Client, Proxy};
+use serde_json::Value;
+use tokio::fs;
 use tokio::sync::Semaphore;
 use select::node::Node;
 use regex::Regex;
@@ -114,7 +118,7 @@ fn clean_text(raw_input: String) -> String {
   re.replace_all(&raw_input, " ").trim().to_string()
 }
 
-async fn fetch_and_save(document: Document) -> Result<Vec<Post>> {
+async fn process(document: Document) -> Result<Vec<Post>> {
   let mut posts = Vec::new();
   for node in document.find(Class("message")) {
     let post = Post {
@@ -151,11 +155,90 @@ async fn save(page: String) -> Result<()> {
   Ok(())
 }
 
+#[derive(Serialize, Deserialize, Default)]
+struct State {
+  last_page_processed: usize
+}
+
+async fn read_state() -> Result<State, Box<dyn std::error::Error>> {
+  if Path::new("state.json").exists() {
+    let data = fs::read_to_string("state.json").await?;
+    Ok(serde_json::from_str(&data)?)
+  } else {
+    Ok(State::default())
+  }
+}
+
+async fn fetch_and_process_page(client: &Client, page: usize) -> Result<HashMap<String, Value>> {
+  let url = format!("{}{}", BASE_URL, page);
+  let resp = client.get(&url).send().await?.text().await?;
+  let document = Document::from(resp.as_str());
+
+  // Simulated processing function
+  let posts = process(document).await?;
+  Ok(
+    posts
+      .into_iter()
+      .map(|p| (p.id.to_string(), serde_json::to_value(p).unwrap()))
+      .collect()
+  )
+}
+
+async fn update_state(page: usize) -> Result<()> {
+  let mut state = read_state().await.unwrap();
+  state.last_page_processed = page;
+  tokio::fs::write("state.json", serde_json::to_string_pretty(&state)?).await?;
+  Ok(())
+}
+
 #[tokio::main]
-async fn main() {
-  let raw_html = std::fs::read_to_string("page.html").unwrap();
-  let document = Document::from(raw_html.as_str());
-  let result = fetch_and_save(document).await.unwrap();
-  let json = serde_json::to_string_pretty(&result).unwrap();
-  std::fs::write("posts.json", json).unwrap();
+async fn main() -> Result<()> {
+  let client = reqwest::Client::new();
+  let semaphore = Arc::new(Semaphore::new(5));
+  let state = read_state().await.unwrap();
+  let progress_bar = ProgressBar::new(TOTAL_PAGES as u64);
+  progress_bar.set_style(
+    ProgressStyle::default_bar()
+      .template("{wide_bar} {pos}/{len}")
+      .unwrap()
+  );
+
+  let mut posts: HashMap<String, Value> = if Path::new("posts.json").exists() {
+    let data = tokio::fs::read_to_string("posts.json").await?;
+    serde_json::from_str(&data)?
+  } else {
+    HashMap::new()
+  };
+  // ...
+
+  let state = Arc::new(Mutex::new(read_state().await.unwrap()));
+
+  // ...
+
+  for page in 1..=TOTAL_PAGES {
+    if page <= state.lock().unwrap().last_page_processed {
+      continue;
+    }
+
+    let _permit = semaphore.clone().acquire_owned().await.unwrap();
+    let client_ref = client.clone();
+    let state_ref = state.clone();
+
+    let fetched_posts = tokio::task::spawn_blocking(move || {
+      let page_state = state_ref.lock().unwrap();
+      tokio::runtime::Handle::current().block_on(fetch_and_process_page(&client_ref, page_state.last_page_processed))
+    })
+    .await
+    .unwrap()
+    .unwrap();
+
+    posts.extend(fetched_posts);
+    update_state(page).await?;
+    progress_bar.inc(1);
+  }
+
+  // ...
+  tokio::fs::write("posts.json", serde_json::to_string_pretty(&posts)?).await?;
+  progress_bar.finish_with_message("Processing complete.");
+  Ok(())
 }
