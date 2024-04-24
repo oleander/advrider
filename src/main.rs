@@ -1,18 +1,19 @@
-#![allow(unused_code)]
+#![allow(dead_code)]
 #![allow(unused_imports)]
 
 use std::io::{BufWriter, Write};
 use std::fs::OpenOptions;
 use std::sync::Arc;
 
-use anyhow::{Context, Result};
-use indicatif::{ProgressBar, ProgressStyle};
 use select::predicate::{Class, Name, Predicate};
+use indicatif::{ProgressBar, ProgressStyle};
 use serde::{Deserialize, Serialize};
 use select::document::Document;
+use anyhow::{Context, Result};
 use reqwest::{header, Client};
 use tokio::sync::Semaphore;
 use select::node::Node;
+use regex::Regex;
 
 const BASE_URL: &str = "https://advrider.com/f/threads/husqvarna-701-super-moto-and-enduro.1086621/page-";
 const TOTAL_PAGES: usize = 2314;
@@ -79,16 +80,22 @@ fn extract_quotes(node: &Node) -> Vec<i32> {
 }
 
 fn extract_body(node: &Node) -> String {
-  node
+  let content_node = node.find(Class("messageText")).next().unwrap();
+  let str = content_node
     .children()
-    .filter(|child| !child.is(select::predicate::Name("aside")))
-    .filter(|child| !child.is(select::predicate::Class("bbCodeBlock")))
-    .filter(|child| !child.is(select::predicate::Class("bbCodeQuote")))
+    .filter(|child| !child.is(Name("div")))
     .map(|n| n.text())
     .collect::<Vec<_>>()
     .join(" ")
+    .replace("\n", " ") // Normalize whitespace
     .trim()
-    .to_string()
+    .to_string();
+  clean_text(str)
+}
+
+fn clean_text(raw_input: String) -> String {
+  let re = Regex::new(r"\s+").unwrap();
+  re.replace_all(&raw_input, " ").trim().to_string()
 }
 
 async fn fetch_and_save(document: Document) -> Result<Vec<Post>> {
