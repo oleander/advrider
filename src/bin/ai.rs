@@ -11,20 +11,16 @@ const SYSTEM: &str = "
 TASK:
 You are tasked with processing and summarizing posts from the ADVRider forum, focusing specifically on motorcycle gadgets or accessories discussed within the posts.
 
-STEPS:
-1. Read each post and extract information about any gadgets or accessories mentioned.
-2. Create a list summarizing these items, ensuring each entry includes both the type (e.g., Windscreen) and the brand (e.g., Something).
-3. Review the list to merge new entries with the existing list named LIST.
-4. If no new gadgets or accessories are mentioned, return the list from the previous context unchanged.
-
 OUTPUT:
 * Return a list of gadgets or accessories.
 * Ensure the list is clear and concise, with no explanatory text or wrapping.
-* Handle posts with no relevant mentions by returning the existing list as is.
+* Merge the list from POST and QUOTE and KEEP THESE ACCESSORIES sections.
+* If an item is mentioned often, place it higher on the list
+* Add a counter how many times the item is mentioned [x]
 
 EXAMPLE OUTPUT:
-* Cruise control (MC Cruise)
-* Lower foot pegs (Rade Garage)
+* Cruise control (MC Cruise) [5]
+* Lower foot pegs (Rade Garage) [2]
 * Race air filter (Rade Garage)
 * Phone charger (Quad Lock)
 * Tire pressure monitoring system (FoBo 2)
@@ -32,10 +28,6 @@ EXAMPLE OUTPUT:
 * Exhaust (Akrapovic)
 * Rally Tower (Nomad ADV)
 * Brake Module (SP1)
-
-Note: Adjust the task based on the specifics of the post content and required format.
-
-LIST:
 ";
 
 fn main() -> Result<()> {
@@ -83,18 +75,30 @@ fn main() -> Result<()> {
     progress_bar.println("".to_string());
 
     let mut system = SYSTEM.trim().to_string();
-    if let Some(ref c) = str_context {
-      system.push_str(c.as_str());
-    }
+    // if let Some(ref c) = str_context {
+    //   system.push_str("\n");
+    //   system.push_str(c.as_str());
+    // }
+
+    let prompt = "Extract the gadgets or accessories from the posts and quotes.";
+    let prompt = format!("PROMPT:{}\n{}\nKEEP THESE ACCESSORIES:{}", prompt, content.join(" "), str_context.clone().unwrap_or_default());
 
     let request = json!({
-      "prompt": content.join(" "),
+      "prompt": prompt,
       "model": "mistral:latest",
-      "context": context,
       "system": system,
       "stream": false,
       "options": {
-        "num_ctx": 8000
+        "num_ctx": 4000,
+        "temperature": 0.5,
+        // "mirostat": 0.5,
+        // "mirostat_eta": 0.5,
+        // "repeat_last_n": 1,
+        // "repeat_penalty": 1.5,
+        // "tfs_z": 0.5,
+        // "num_predict": 1,
+        "top_k": 50,
+        // "top_p": 0.9,
       }
     });
 
@@ -114,14 +118,7 @@ fn main() -> Result<()> {
     };
 
     let response = response.json::<Value>()?;
-
-    context = response["context"].clone();
-
-    let f_context = format!("Context: {}\n", context);
-    progress_bar.println(f_context);
-
     let response = response["response"].as_str().unwrap().to_string();
-
     str_context = Some(response.clone());
 
     progress_bar.println("------".to_string());
