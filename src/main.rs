@@ -40,27 +40,32 @@ async fn setup_client() -> Client {
   headers.insert("Sec-Fetch-User", "?1".parse().unwrap());
   headers.insert("Upgrade-Insecure-Requests", "1".parse().unwrap());
   headers.insert("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 OPR/109.0.0.0".parse().unwrap());
-
-  Client::builder().default_headers(headers).build().unwrap()
+  let proxy = reqwest::Proxy::http("http://127.0.0.1:5566").unwrap();
+  Client::builder()
+    .default_headers(headers)
+    .proxy(proxy)
+    .build()
+    .unwrap()
 }
 
 fn clean_text(input: &str) -> String {
-  let mut text = input.trim().to_string(); // Trim leading and trailing whitespace
-  let re = Regex::new(r"\s+").unwrap(); // Regex to match sequences of whitespace
-  text = re.replace_all(&text, " ").to_string(); // Replace all sequences of whitespace with a single space
+  let mut text = input.trim().to_string();
+  let re = Regex::new(r"\s+").unwrap();
+  text = re.replace_all(&text, " ").to_string();
   text
 }
 
 fn extract_text(node: &Node) -> String {
-    node.children()
-        .filter(|child| !child.is(select::predicate::Name("aside")))
-        .filter(|child| !child.is(select::predicate::Class("bbCodeBlock")))
-        .filter(|child| !child.is(select::predicate::Class("bbCodeQuote")))
-        .map(|n| n.text())
-        .collect::<Vec<_>>()
-        .join(" ")
-        .trim()
-        .to_string()
+  node
+    .children()
+    .filter(|child| !child.is(select::predicate::Name("aside")))
+    .filter(|child| !child.is(select::predicate::Class("bbCodeBlock")))
+    .filter(|child| !child.is(select::predicate::Class("bbCodeQuote")))
+    .map(|n| n.text())
+    .collect::<Vec<_>>()
+    .join(" ")
+    .trim()
+    .to_string()
 }
 
 async fn fetch_and_save(page: usize, client: Client, semaphore: Arc<Semaphore>, progress_bar: Arc<ProgressBar>) {
