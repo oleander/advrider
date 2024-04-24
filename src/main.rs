@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
+use std::borrow::Cow;
 use std::io::{BufWriter, Write};
 use std::fs::OpenOptions;
 use std::sync::Arc;
@@ -10,13 +11,25 @@ use indicatif::{ProgressBar, ProgressStyle};
 use serde::{Deserialize, Serialize};
 use select::document::Document;
 use anyhow::{Context, Result};
-use reqwest::{header, Client};
+use reqwest::{header, Client, Proxy};
 use tokio::sync::Semaphore;
 use select::node::Node;
 use regex::Regex;
 
 const BASE_URL: &str = "https://advrider.com/f/threads/husqvarna-701-super-moto-and-enduro.1086621/page-";
 const TOTAL_PAGES: usize = 2314;
+
+pub trait StringExtensions {
+  fn cleaned(&self) -> String;
+}
+
+impl StringExtensions for String {
+  fn cleaned(&self) -> String {
+    let re = Regex::new(r"\s+").unwrap();
+    let temp: Cow<str> = re.replace_all(self, " ");
+    temp.trim().to_string()
+  }
+}
 
 async fn setup_client() -> Client {
   let mut headers = header::HeaderMap::new();
@@ -38,7 +51,7 @@ async fn setup_client() -> Client {
   headers.insert("Sec-Fetch-User", "?1".parse().unwrap());
   headers.insert("Upgrade-Insecure-Requests", "1".parse().unwrap());
   headers.insert("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 OPR/109.0.0.0".parse().unwrap());
-  let proxy = reqwest::Proxy::http("http://127.0.0.1:5566").unwrap();
+  let proxy = Proxy::http("http://127.0.0.1:5566").unwrap();
   Client::builder()
     .default_headers(headers)
     .proxy(proxy)
@@ -79,18 +92,21 @@ fn extract_quotes(node: &Node) -> Vec<i32> {
     .collect()
 }
 
-fn extract_body(node: &Node) -> String {
-  let content_node = node.find(Class("messageText")).next().unwrap();
-  let str = content_node
+fn extract_body(node: &Node) -> Result<String> {
+  let result = node
+    .find(Class("messageText"))
+    .next()
+    .context("Failed to find messageText")?
     .children()
     .filter(|child| !child.is(Name("div")))
     .map(|n| n.text())
     .collect::<Vec<_>>()
     .join(" ")
-    .replace("\n", " ") // Normalize whitespace
+    .replace("\n", " ")
     .trim()
-    .to_string();
-  clean_text(str)
+    .to_string()
+    .cleaned();
+  Ok(result)
 }
 
 fn clean_text(raw_input: String) -> String {
@@ -99,17 +115,18 @@ fn clean_text(raw_input: String) -> String {
 }
 
 async fn fetch_and_save(document: Document) -> Result<Vec<Post>> {
-  let posts = document
-    .find(Class("message"))
-    .map(|node| {
-      Post {
-        id:       extract_id(&node),
-        is_liked: extract_is_liked(&node),
-        quotes:   extract_quotes(&node),
-        body:     extract_body(&node)
-      }
-    })
-    .collect::<Vec<_>>();
+  let mut posts = Vec::new();
+  for node in document.find(Class("message")) {
+    let post = Post {
+      id:       extract_id(&node),
+      is_liked: extract_is_liked(&node),
+      quotes:   extract_quotes(&node),
+      body:     extract_body(&node).context("Failed to extract body")?
+    };
+
+    posts.push(post);
+  }
+
   Ok(posts)
 }
 
