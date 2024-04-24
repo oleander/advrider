@@ -287,19 +287,26 @@ async fn main() -> Result<()> {
     let state_ref = state.clone();
 
     let fetched_posts = tokio::task::spawn_blocking(move || {
-      let page_state = state_ref.lock().unwrap();
-      tokio::runtime::Handle::current().block_on(fetch_and_process_page(&client_ref, page_state.last_page_processed))
+      let mut page_state = state_ref.lock().unwrap();
+      let result = tokio::runtime::Handle::current().block_on(fetch_and_process_page(&client_ref, page));
+      page_state.last_page_processed = page;
+      let serialized_state = serde_json::to_string(&*page_state).unwrap();
+      std::fs::write("state.json", serialized_state).unwrap();
+      result
     })
     .await
     .unwrap()
     .unwrap();
 
-    posts.extend(fetched_posts);
+    for (id, post) in fetched_posts.iter() {
+      posts.insert(*id, post.clone());
+    }
+
     posts_file.write_json(&posts).await?;
 
     update_state(page).await?;
 
-    progress_bar.tick();
+    progress_bar.inc(1);
   }
 
   progress_bar.finish_with_message("Processing complete.");
