@@ -37,6 +37,10 @@ impl File {
     }
   }
 
+  pub async fn exists(&self) -> bool {
+    self.path.exists().await
+  }
+
   // Async method to read the file content into a string
   pub async fn read(&self) -> Result<String> {
     let mut file = AsyncFile::open(&self.path).await?;
@@ -46,13 +50,13 @@ impl File {
   }
 
   // Async method to write a string to the file
-  pub async fn write(&self, content: &[u8]) -> Result<()> {
+  pub async fn write(&self, content: &str) -> Result<()> {
     let mut file = AsyncFile::create(&self.path).await?;
-    file.write_all(content).await.map_err(Into::into)
+    file.write_all(content.as_bytes()).await.map_err(Into::into)
   }
 
   // Async method to delete the file
-  pub async fn delete(self) -> Result<()> {
+  pub async fn delete(&self) -> Result<()> {
     fs::remove_file(&self.path).await.map_err(Into::into)
   }
 
@@ -204,8 +208,9 @@ struct State {
 }
 
 async fn read_state() -> Result<State, Box<dyn std::error::Error>> {
-  if Path::new("state.json").exists() {
-    let data = fs::read_to_string("state.json").await?;
+  let state_file = File::new("state.json");
+  if state_file.exists().await {
+    let data = state_file.read().await?;
     Ok(serde_json::from_str(&data)?)
   } else {
     Ok(State::default())
@@ -235,11 +240,10 @@ async fn fetch_and_process_page(client: &Client, page: usize) -> Result<HashMap<
 
 async fn update_state(page: usize) -> Result<()> {
   let mut state = read_state().await.unwrap();
+  let json = serde_json::to_string_pretty(&state)?;
   state.last_page_processed = page;
   let state_file = File::new("state.json");
-  state_file
-    .write(serde_json::to_string_pretty(&state)?.as_bytes())
-    .await?;
+  state_file.write(&json).await?;
   Ok(())
 }
 
@@ -248,6 +252,12 @@ async fn main() -> Result<()> {
   env_logger::init();
 
   let posts_file = File::new("posts.json");
+  let state_file = File::new("state.json");
+  let default_state = State::default();
+  let default_state_json = serde_json::to_string_pretty(&default_state)?;
+
+  posts_file.write("{}\n").await?;
+  state_file.write(&default_state_json).await?;
 
   let client = setup_client().await;
   let semaphore = Arc::new(Semaphore::new(5));
@@ -284,10 +294,10 @@ async fn main() -> Result<()> {
     .unwrap()
     .unwrap();
 
+    let json = serde_json::to_string_pretty(&fetched_posts)?;
+
     posts.extend(fetched_posts);
-    posts_file
-      .write(serde_json::to_string_pretty(&posts)?.as_bytes())
-      .await?;
+    posts_file.write(&json).await?;
     update_state(page).await?;
     progress_bar.inc(1);
   }
