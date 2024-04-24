@@ -119,11 +119,9 @@ fn clean_text(raw_input: String) -> String {
 }
 
 async fn process(document: Document) -> Result<Vec<Post>> {
-
   let mut posts = Vec::new();
-  println!("Processing document: {:#?}", document);
+  // println!("Processing document: {:#?}", document);
   for node in document.find(Class("message")) {
-
     let post = Post {
       id:       extract_id(&node),
       is_liked: extract_is_liked(&node),
@@ -139,10 +137,10 @@ async fn process(document: Document) -> Result<Vec<Post>> {
 
 async fn download(client: &Client, page: usize) -> Result<String> {
   let url = format!("{}{}", BASE_URL, page);
-  log::info!("Downloading page: {}", url);
+  // log::info!("Downloading page: {}", url);
   let resp = client.get(&url).send().await?;
-  log::info!("Status: {:#?}", resp.status());
-  log::info!("Response: {:#?}", resp);
+  // log::info!("Status: {:#?}", resp.status());
+  // log::info!("Response: {:#?}", resp);
   let body = resp.text().await?;
   Ok(body)
 }
@@ -175,24 +173,24 @@ async fn read_state() -> Result<State, Box<dyn std::error::Error>> {
   }
 }
 
-async fn fetch_and_process_page(client: &Client, page: usize) -> Result<HashMap<String, Value>> {
+async fn fetch_and_process_page(client: &Client, page: usize) -> Result<HashMap<u32, Value>> {
   let url = format!("{}{}", BASE_URL, page);
   let resp = client.get(&url).send().await?.text().await?;
-  log::info!("Url: {}", url);
-  log::info!("Fetched page {}", page);
-  log::info!("Response: {:#?}", resp);
+  // log::info!("Url: {}", url);
+  // log::info!("Fetched page {}", page);
+  // log::info!("Response: {:#?}", resp);
 
   let document = Document::from(resp.as_str());
 
   // Simulated processing function
   let posts = process(document).await?;
-  println!("Processed page {}", page);
-  println!("Found {:#?} posts", posts);
+  // println!("Processed page {}", page);
+  // println!("Found {:#?} posts", posts);
   Ok(
     posts
       .into_iter()
-      .map(|p| (p.id.to_string(), serde_json::to_value(p).unwrap()))
-      .collect()
+      .map(|p| (p.id as u32, serde_json::to_value(p).unwrap()))
+      .collect::<HashMap<u32, Value>>()
   )
 }
 
@@ -216,7 +214,7 @@ async fn main() -> Result<()> {
       .unwrap()
   );
 
-  let mut posts: HashMap<String, Value> = if Path::new("posts.json").exists() {
+  let mut posts: HashMap<u32, Value> = if Path::new("posts.json").exists() {
     let data = tokio::fs::read_to_string("posts.json").await?;
     serde_json::from_str(&data)?
   } else {
