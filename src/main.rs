@@ -176,6 +176,8 @@ async fn fetch_and_process_page(client: &Client, page: usize) -> Result<HashMap<
 
   // Simulated processing function
   let posts = process(document).await?;
+  println!("Processed page {}", page);
+  println!("Found {:#?} posts", posts);
   Ok(
     posts
       .into_iter()
@@ -195,7 +197,6 @@ async fn update_state(page: usize) -> Result<()> {
 async fn main() -> Result<()> {
   let client = reqwest::Client::new();
   let semaphore = Arc::new(Semaphore::new(5));
-  let state = read_state().await.unwrap();
   let progress_bar = ProgressBar::new(TOTAL_PAGES as u64);
   progress_bar.set_style(
     ProgressStyle::default_bar()
@@ -233,12 +234,11 @@ async fn main() -> Result<()> {
     .unwrap();
 
     posts.extend(fetched_posts);
+    tokio::fs::write("posts.json", serde_json::to_string_pretty(&posts)?).await?;
     update_state(page).await?;
     progress_bar.inc(1);
   }
 
-  // ...
-  tokio::fs::write("posts.json", serde_json::to_string_pretty(&posts)?).await?;
   progress_bar.finish_with_message("Processing complete.");
   Ok(())
 }
