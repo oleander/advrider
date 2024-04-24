@@ -16,20 +16,7 @@ OUTPUT:
 * Ensure the list is clear and concise, with no explanatory text or wrapping.
 * Merge the list from POST and QUOTE and KEEP THESE ACCESSORIES sections.
 * If an item is mentioned often, place it higher on the list
-* Add a counter how many times the item is mentioned [x]
-* If an item has NEVER been mentioned, do not include it in the list
 * If POST and QUOTE returns nothing, return KEEP THESE ACCESSORIES
-
-EXAMPLE OUTPUT:
-* Cruise control (MC Cruise) [5]
-* Lower foot pegs (Rade Garage) [2]
-* Race air filter (Rade Garage)
-* Phone charger (Quad Lock)
-* Tire pressure monitoring system (FoBo 2)
-* Taller saddle (Seat Concepts)
-* Exhaust (Akrapovic)
-* Rally Tower (Nomad ADV)
-* Brake Module (SP1)
 ";
 
 fn main() -> Result<()> {
@@ -98,8 +85,8 @@ fn main() -> Result<()> {
         // "repeat_penalty": 1.5,
         // "tfs_z": 0.5,
         // "num_predict": 1,
-        "top_k": 50,
-        // "top_p": 0.9,
+        "top_k": 20,
+        "top_p": 0.2,
       }
     });
 
