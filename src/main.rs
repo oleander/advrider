@@ -119,8 +119,11 @@ fn clean_text(raw_input: String) -> String {
 }
 
 async fn process(document: Document) -> Result<Vec<Post>> {
+
   let mut posts = Vec::new();
+  println!("Processing document: {:#?}", document);
   for node in document.find(Class("message")) {
+
     let post = Post {
       id:       extract_id(&node),
       is_liked: extract_is_liked(&node),
@@ -136,7 +139,10 @@ async fn process(document: Document) -> Result<Vec<Post>> {
 
 async fn download(client: &Client, page: usize) -> Result<String> {
   let url = format!("{}{}", BASE_URL, page);
+  log::info!("Downloading page: {}", url);
   let resp = client.get(&url).send().await?;
+  log::info!("Status: {:#?}", resp.status());
+  log::info!("Response: {:#?}", resp);
   let body = resp.text().await?;
   Ok(body)
 }
@@ -172,6 +178,10 @@ async fn read_state() -> Result<State, Box<dyn std::error::Error>> {
 async fn fetch_and_process_page(client: &Client, page: usize) -> Result<HashMap<String, Value>> {
   let url = format!("{}{}", BASE_URL, page);
   let resp = client.get(&url).send().await?.text().await?;
+  log::info!("Url: {}", url);
+  log::info!("Fetched page {}", page);
+  log::info!("Response: {:#?}", resp);
+
   let document = Document::from(resp.as_str());
 
   // Simulated processing function
@@ -195,7 +205,9 @@ async fn update_state(page: usize) -> Result<()> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-  let client = reqwest::Client::new();
+  env_logger::init();
+
+  let client = setup_client().await;
   let semaphore = Arc::new(Semaphore::new(5));
   let progress_bar = ProgressBar::new(TOTAL_PAGES as u64);
   progress_bar.set_style(
