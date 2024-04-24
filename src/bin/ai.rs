@@ -1,10 +1,11 @@
 use std::collections::BTreeMap;
 use std::fs;
 
-use anyhow::{Context, Result};
-use indicatif::ProgressBar;
+use rand::Rng;
 use reqwest::blocking::Client;
 use serde_json::{json, Value};
+use indicatif::ProgressBar;
+use anyhow::Result;
 
 const SYSTEM: &str = "
 You are an AI bot tasked with processing and summarizing posts from the ADVRider forum, specifically those concerning the Husqvarna 701 Enduro motorcycle. Your goal is to distill unique tips, tricks, and insights beneficial for Husqvarna 701 owners, integrating this new information into an existing aggregated knowledge base without duplicating content. Exclude common knowledge or basic maintenance tips.
@@ -33,12 +34,18 @@ fn main() -> Result<()> {
   let posts: BTreeMap<i64, Value> = serde_json::from_str(&posts).expect("Failed to parse JSON");
 
   let client = Client::new();
-  let mut context = Value::Null;
+  let mut context: Option<Vec<u64>> = None;
   let mut post_ids = posts.keys().cloned().collect::<Vec<i64>>();
   let progress_bar = ProgressBar::new(post_ids.len() as u64);
 
   post_ids.sort();
   post_ids.reverse();
+
+  let mut post_ids = post_ids.clone().into_iter().collect::<Vec<i64>>();
+  post_ids.sort_by(|_, _| {
+    let mut rng = rand::thread_rng();
+    rng.gen::<i64>().cmp(&rng.gen::<i64>())
+  });
 
   for post_id in post_ids {
     progress_bar.inc(1);
@@ -48,6 +55,8 @@ fn main() -> Result<()> {
     let post_body = post["body"].as_str().unwrap_or_default();
     let post_quotes = post["quotes"].as_array().unwrap_or(&other);
     let mut content = vec![post_body.to_string()];
+
+    // sort post_quotes by random
 
     for quote_id in post_quotes {
       let id = quote_id.as_i64().unwrap();
@@ -59,10 +68,13 @@ fn main() -> Result<()> {
       }
     }
 
-    let request = json!({
+    let f_content = format!("Content: {}", content.join("\n"));
+    progress_bar.println(f_content);
+    progress_bar.println("".to_string());
+
+    let mut request = json!({
       "prompt": content.join("\n"),
       "model": "mistral:latest",
-      "context": context,
       "system": SYSTEM,
       "stream": false,
       "options": {
@@ -70,43 +82,45 @@ fn main() -> Result<()> {
       }
     });
 
-    let msg = format!("Processing post #{}", post_id);
+    if let Some(c) = context.clone() {
+      request["context"] = json!(c);
+    }
+
+    let msg = format!("\nProcessing post #{}\n", post_id);
     progress_bar.println(msg);
+    progress_bar.println("".to_string());
+
     let response = client
       .post("http://localhost:11434/api/generate")
       .json(&request)
-      .send()
-      .context("Failed to send request")?
-      .json::<Value>();
+      .send();
 
     let Ok(response) = response else {
       progress_bar.println("Failed to parse response");
+      progress_bar.println("".to_string());
       continue;
     };
 
-    context = response["context"].clone();
+    let response = response.json::<Value>()?;
+
+    let inner_context = response["context"]
+      .as_array()
+      .unwrap()
+      .clone()
+      .into_iter()
+      .collect::<Vec<Value>>()
+      .iter()
+      .map(|v| v.as_u64().unwrap())
+      .collect::<Vec<u64>>();
+
+    context = Some(inner_context);
+
     let response = response["response"].as_str().unwrap();
 
-    progress_bar.println("====> Response:");
-    progress_bar.println(response);
+    let f_response = format!("Response: {}", response);
+    progress_bar.println(f_response);
+    progress_bar.println("".to_string());
   }
 
   Ok(())
 }
-
-// fn send_to_api(client: &Client, messages: &[Value]) -> Option<String> {
-//   let request_body = json!({
-//       "model": "llama2:13b",
-//       "stream": false,
-//       "messages": messages,
-//   });
-
-//   let response = client
-//     .post("http://localhost:11434/api/chat")
-//     .json(&request_body)
-//     .send()
-//     .ok()?;
-
-//   let result: Value = response.json().ok()?;
-//   result["message"]["content"].as_str().map(String::from)
-// }

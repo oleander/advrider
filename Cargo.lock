@@ -26,6 +26,7 @@ dependencies = [
  "env_logger",
  "indicatif",
  "log",
+ "rand",
  "regex",
  "reqwest",
  "scrub",
