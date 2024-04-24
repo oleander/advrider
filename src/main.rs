@@ -13,6 +13,7 @@ use async_std::prelude::*;
 use async_std::path::PathBuf;
 use select::predicate::{Class, Name, Predicate};
 use indicatif::{ProgressBar, ProgressStyle};
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use select::document::Document;
 use anyhow::{Context, Result};
@@ -49,10 +50,20 @@ impl File {
     Ok(contents)
   }
 
+  pub async fn read_json<T: DeserializeOwned>(&self) -> Result<T> {
+    let data = self.read().await?;
+    Ok(serde_json::from_str(&data)?)
+  }
+
   // Async method to write a string to the file
   pub async fn write(&self, content: &str) -> Result<()> {
     let mut file = AsyncFile::create(&self.path).await?;
     file.write_all(content.as_bytes()).await.map_err(Into::into)
+  }
+
+  pub async fn write_json<T: Serialize>(&self, value: &T) -> Result<()> {
+    let content = serde_json::to_string_pretty(value)?;
+    self.write(&content).await
   }
 
   // Async method to delete the file
@@ -210,8 +221,7 @@ struct State {
 async fn read_state() -> Result<State, Box<dyn std::error::Error>> {
   let state_file = File::new("state.json");
   if state_file.exists().await {
-    let data = state_file.read().await?;
-    Ok(serde_json::from_str(&data)?)
+    Ok(state_file.read_json::<State>().await?)
   } else {
     Ok(State::default())
   }
@@ -220,16 +230,8 @@ async fn read_state() -> Result<State, Box<dyn std::error::Error>> {
 async fn fetch_and_process_page(client: &Client, page: usize) -> Result<HashMap<u32, Value>> {
   let url = format!("{}{}", BASE_URL, page);
   let resp = client.get(&url).send().await?.text().await?;
-  // log::info!("Url: {}", url);
-  // log::info!("Fetched page {}", page);
-  // log::info!("Response: {:#?}", resp);
-
   let document = Document::from(resp.as_str());
-
-  // Simulated processing function
   let posts = process(document).await?;
-  // println!("Processed page {}", page);
-  // println!("Found {:#?} posts", posts);
   Ok(
     posts
       .into_iter()
@@ -240,10 +242,9 @@ async fn fetch_and_process_page(client: &Client, page: usize) -> Result<HashMap<
 
 async fn update_state(page: usize) -> Result<()> {
   let mut state = read_state().await.unwrap();
-  let json = serde_json::to_string_pretty(&state)?;
   state.last_page_processed = page;
   let state_file = File::new("state.json");
-  state_file.write(&json).await?;
+  state_file.write_json(&state).await?;
   Ok(())
 }
 
@@ -254,23 +255,22 @@ async fn main() -> Result<()> {
   let posts_file = File::new("posts.json");
   let state_file = File::new("state.json");
   let default_state = State::default();
-  let default_state_json = serde_json::to_string_pretty(&default_state)?;
 
   posts_file.write("{}\n").await?;
-  state_file.write(&default_state_json).await?;
+  state_file.write_json(&default_state).await?;
 
   let client = setup_client().await;
   let semaphore = Arc::new(Semaphore::new(5));
   let progress_bar = ProgressBar::new(TOTAL_PAGES as u64);
+
   progress_bar.set_style(
     ProgressStyle::default_bar()
       .template("{wide_bar} {pos}/{len}")
       .unwrap()
   );
 
-  let mut posts: HashMap<u32, Value> = if Path::new("posts.json").exists() {
-    let data = posts_file.read().await?;
-    serde_json::from_str(&data)?
+  let mut posts = if posts_file.exists().await {
+    posts_file.read_json::<HashMap<u32, Value>>().await?
   } else {
     HashMap::new()
   };
@@ -294,12 +294,12 @@ async fn main() -> Result<()> {
     .unwrap()
     .unwrap();
 
-    let json = serde_json::to_string_pretty(&fetched_posts)?;
-
     posts.extend(fetched_posts);
-    posts_file.write(&json).await?;
+    posts_file.write_json(&posts).await?;
+
     update_state(page).await?;
-    progress_bar.inc(1);
+
+    progress_bar.tick();
   }
 
   progress_bar.finish_with_message("Processing complete.");
