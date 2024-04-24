@@ -1,3 +1,6 @@
+#![allow(unused_code)]
+#![allow(unused_imports)]
+
 use std::io::{BufWriter, Write};
 use std::fs::OpenOptions;
 use std::sync::Arc;
@@ -47,8 +50,7 @@ struct Post {
   id:       i32,
   is_liked: bool,
   quotes:   Vec<i32>,
-  body:     String,
-  page:     usize
+  body:     String
 }
 
 fn extract_id(node: &Node) -> i32 {
@@ -78,9 +80,10 @@ fn extract_quotes(node: &Node) -> Vec<i32> {
 
 fn extract_body(node: &Node) -> String {
   node
-    .find(Class("baseHtml"))
-    .filter(|child| !child.is(Class("bbCodeBlock")))
-    .filter(|child| !child.is(Class("bbCodeQuote")))
+    .children()
+    .filter(|child| !child.is(select::predicate::Name("aside")))
+    .filter(|child| !child.is(select::predicate::Class("bbCodeBlock")))
+    .filter(|child| !child.is(select::predicate::Class("bbCodeQuote")))
     .map(|n| n.text())
     .collect::<Vec<_>>()
     .join(" ")
@@ -88,57 +91,46 @@ fn extract_body(node: &Node) -> String {
     .to_string()
 }
 
-async fn fetch_and_save(page: usize, client: Client) -> Result<Vec<Post>> {
-  let url = format!("{}{}", BASE_URL, page);
-  let resp = client
-    .get(&url)
-    .send()
-    .await
-    .context("Failed to fetch page")?;
-  let text = resp.text().await.context("Failed to fetch page")?;
-  let document = Document::from(text.as_str());
+async fn fetch_and_save(document: Document) -> Result<Vec<Post>> {
   let posts = document
     .find(Class("message"))
     .map(|node| {
       Post {
-        id: extract_id(&node),
+        id:       extract_id(&node),
         is_liked: extract_is_liked(&node),
-        quotes: extract_quotes(&node),
-        body: extract_body(&node),
-        page
+        quotes:   extract_quotes(&node),
+        body:     extract_body(&node)
       }
     })
     .collect::<Vec<_>>();
   Ok(posts)
 }
 
+async fn download(client: &Client, page: usize) -> Result<String> {
+  let url = format!("{}{}", BASE_URL, page);
+  let resp = client.get(&url).send().await?;
+  let body = resp.text().await?;
+  Ok(body)
+}
+
+async fn save(page: String) -> Result<()> {
+  let file = OpenOptions::new()
+    .create(true)
+    .write(true)
+    .truncate(true)
+    .open("page.html")
+    .context("Failed to open file")?;
+  let mut writer = BufWriter::new(file);
+  writer
+    .write_all(page.as_bytes())
+    .context("Failed to write to file")?;
+  Ok(())
+}
+
 #[tokio::main]
 async fn main() {
-  let client = setup_client().await;
-  let progress_bar = Arc::new(ProgressBar::new(TOTAL_PAGES as u64));
-  progress_bar.set_style(
-    ProgressStyle::default_bar()
-      .template("{wide_bar} {pos}/{len}")
-      .expect("Failed to set progress bar style")
-  );
-
-  let page = 1;
-  let result = fetch_and_save(page, client).await.unwrap();
+  let raw_html = std::fs::read_to_string("page.html").unwrap();
+  let document = Document::from(raw_html.as_str());
+  let result = fetch_and_save(document).await.unwrap();
   println!("{:#?}", result);
-
-  // let mut handles = vec![];
-  // for page in 1..=TOTAL_PAGES {
-  //   let client = client.clone();
-  //   let semaphore = semaphore.clone();
-  //   let progress_bar = progress_bar.clone();
-  //   handles.push(tokio::spawn(async move {
-  //     fetch_and_save(page, client, semaphore, progress_bar).await;
-  //   }));
-  // }
-
-  // for handle in handles {
-  //   handle.await.unwrap();
-  // }
-
-  progress_bar.finish_with_message("Download complete.");
 }
