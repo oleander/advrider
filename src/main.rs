@@ -156,5 +156,6 @@ async fn main() {
   let raw_html = std::fs::read_to_string("page.html").unwrap();
   let document = Document::from(raw_html.as_str());
   let result = fetch_and_save(document).await.unwrap();
-  println!("{:#?}", result);
+  let json = serde_json::to_string_pretty(&result).unwrap();
+  std::fs::write("posts.json", json).unwrap();
 }
