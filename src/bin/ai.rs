@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::fs;
 
 use anyhow::{Context, Result};
+use indicatif::ProgressBar;
 use reqwest::blocking::Client;
 use serde_json::{json, Value};
 
@@ -15,6 +16,8 @@ Only the extracted knowlage in list form and do not wrap the answer in anything.
 The output should only consists of gadgets or accessories that are useful for the Husqvarna 701 Enduro and that's likly to enhance the user experience, like a a new saddle, cruise control or a new windscreen. Do not include the prompt in the output. Be precise and concise and use a markdown list format and include the brand of the product if possible
 
 Shorten the phrasing as much as possible. Only include the name of the gadget and the brand. No justification or explanation is needed
+
+Only use information provided in the prompt. Do not include any additional information or make assumptions or by the user.
 ";
 
 // #[derive(Debug, serde::Deserialize)]
@@ -30,19 +33,19 @@ fn main() -> Result<()> {
   let posts: BTreeMap<i64, Value> = serde_json::from_str(&posts).expect("Failed to parse JSON");
 
   let client = Client::new();
-  let mut context = None;
+  let mut context = Value::Null;
   let mut post_ids = posts.keys().cloned().collect::<Vec<i64>>();
+  let progress_bar = ProgressBar::new(post_ids.len() as u64);
 
   post_ids.sort();
   post_ids.reverse();
 
   for post_id in post_ids {
-    let other = Vec::new();
+    progress_bar.inc(1);
 
+    let other = Vec::new();
     let post = posts.get(&post_id).unwrap();
-    // println!("Processing post: {}", post_id);
     let post_body = post["body"].as_str().unwrap_or_default();
-    // println!("Post body: {}", post_body);
     let post_quotes = post["quotes"].as_array().unwrap_or(&other);
     let mut content = vec![post_body.to_string()];
 
@@ -56,36 +59,36 @@ fn main() -> Result<()> {
       }
     }
 
-    let mut request = json!({
-      "system": SYSTEM,
+    let request = json!({
       "prompt": content.join("\n"),
       "model": "mistral:latest",
+      "context": context,
+      "system": SYSTEM,
       "stream": false,
       "options": {
         "num_ctx": 4048
       }
     });
 
-    if let Some(c) = context {
-      request["context"] = json!(c);
-    }
-
-    log::info!("Sending request: {:?}", request);
+    let msg = format!("Processing post #{}", post_id);
+    progress_bar.println(msg);
     let response = client
       .post("http://localhost:11434/api/generate")
       .json(&request)
       .send()
       .context("Failed to send request")?
-      .json::<Value>()?;
+      .json::<Value>();
 
-    // println!("Response: {:?}", response);
+    let Ok(response) = response else {
+      progress_bar.println("Failed to parse response");
+      continue;
+    };
 
-    context = Some(response["context"].as_array().unwrap().clone());
+    context = response["context"].clone();
     let response = response["response"].as_str().unwrap();
 
-    println!("Response: {}", response);
-    println!();
-    // println!("Context: {:?}", context);
+    progress_bar.println("====> Response:");
+    progress_bar.println(response);
   }
 
   Ok(())
