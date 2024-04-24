@@ -1,21 +1,14 @@
-use std::fs::OpenOptions;
 use std::io::{BufWriter, Write};
+use std::fs::OpenOptions;
 use std::sync::Arc;
 
 use indicatif::{ProgressBar, ProgressStyle};
-use regex::Regex;
-use select::node::Node;
+use select::predicate::{Class, Name, Predicate};
 use serde::{Deserialize, Serialize};
 use select::document::Document;
 use reqwest::{header, Client};
-use select::predicate::Class;
 use tokio::sync::Semaphore;
-
-#[derive(Serialize, Deserialize, Debug)]
-struct Post {
-  post: String,
-  page: usize
-}
+use select::node::Node;
 
 const BASE_URL: &str = "https://advrider.com/f/threads/husqvarna-701-super-moto-and-enduro.1086621/page-";
 const TOTAL_PAGES: usize = 2314;
@@ -48,19 +41,45 @@ async fn setup_client() -> Client {
     .unwrap()
 }
 
-fn clean_text(input: &str) -> String {
-  let mut text = input.trim().to_string();
-  let re = Regex::new(r"\s+").unwrap();
-  text = re.replace_all(&text, " ").to_string();
-  text
+#[derive(Debug, Serialize, Deserialize)]
+struct Post {
+  id:       i32,
+  is_liked: bool,
+  quotes:   Vec<i32>,
+  body:     String,
+  page:     usize
 }
 
-fn extract_text(node: &Node) -> String {
+fn extract_id(node: &Node) -> i32 {
   node
-    .children()
-    .filter(|child| !child.is(select::predicate::Name("aside")))
-    .filter(|child| !child.is(select::predicate::Class("bbCodeBlock")))
-    .filter(|child| !child.is(select::predicate::Class("bbCodeQuote")))
+    .attr("id")
+    .and_then(|id| id.strip_prefix("post-"))
+    .and_then(|id| id.parse::<i32>().ok())
+    .unwrap_or_default()
+}
+
+fn extract_is_liked(node: &Node) -> bool {
+  node
+    .find(Class("LikeText").descendant(Name("a")))
+    .next()
+    .is_some()
+}
+
+fn extract_quotes(node: &Node) -> Vec<i32> {
+  node
+    .find(Class("bbCodeQuote").descendant(Name("a")))
+    .filter_map(|a| a.attr("href"))
+    .filter_map(|href| href.strip_prefix("goto/post?id="))
+    .filter_map(|id| id.split('#').next())
+    .filter_map(|id| id.parse::<i32>().ok())
+    .collect()
+}
+
+fn extract_body(node: &Node) -> String {
+  node
+    .find(Name("blockquote"))
+    .filter(|child| !child.is(Class("bbCodeBlock")))
+    .filter(|child| !child.is(Class("bbCodeQuote")))
     .map(|n| n.text())
     .collect::<Vec<_>>()
     .join(" ")
@@ -76,10 +95,13 @@ async fn fetch_and_save(page: usize, client: Client, semaphore: Arc<Semaphore>, 
       if let Ok(text) = resp.text().await {
         let document = Document::from(text.as_str());
         let posts: Vec<Post> = document
-          .find(Class("baseHtml"))
+          .find(Class("message"))
           .map(|node| {
             Post {
-              post: clean_text(&extract_text(&node)), // Extracting text with exclusion of <aside>
+              id: extract_id(&node),
+              is_liked: extract_is_liked(&node),
+              quotes: extract_quotes(&node),
+              body: extract_body(&node),
               page
             }
           })
