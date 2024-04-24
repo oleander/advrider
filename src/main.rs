@@ -8,6 +8,9 @@ use std::fs::OpenOptions;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
+use async_std::fs::{self, File as AsyncFile};
+use async_std::prelude::*;
+use async_std::path::PathBuf;
 use select::predicate::{Class, Name, Predicate};
 use indicatif::{ProgressBar, ProgressStyle};
 use serde::{Deserialize, Serialize};
@@ -15,13 +18,49 @@ use select::document::Document;
 use anyhow::{Context, Result};
 use reqwest::{header, Client, Proxy};
 use serde_json::Value;
-use tokio::fs;
 use tokio::sync::Semaphore;
 use select::node::Node;
 use regex::Regex;
 
 const BASE_URL: &str = "https://advrider.com/f/threads/husqvarna-701-super-moto-and-enduro.1086621/page-";
 const TOTAL_PAGES: usize = 2314;
+
+struct File {
+  path: PathBuf
+}
+
+impl File {
+  // Constructor to create a new instance of MyFile
+  pub fn new<P: Into<PathBuf>>(path: P) -> File {
+    File {
+      path: path.into()
+    }
+  }
+
+  // Async method to read the file content into a string
+  pub async fn read(&self) -> Result<String> {
+    let mut file = AsyncFile::open(&self.path).await?;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents).await?;
+    Ok(contents)
+  }
+
+  // Async method to write a string to the file
+  pub async fn write(&self, content: &[u8]) -> Result<()> {
+    let mut file = AsyncFile::create(&self.path).await?;
+    file.write_all(content).await.map_err(Into::into)
+  }
+
+  // Async method to delete the file
+  pub async fn delete(self) -> Result<()> {
+    fs::remove_file(&self.path).await.map_err(Into::into)
+  }
+
+  // Async method to touch the file (update its modified time or create it if it doesn't exist)
+  pub async fn touch(&self) -> async_std::io::Result<()> {
+    AsyncFile::create(&self.path).await.map(|_| ())
+  }
+}
 
 pub trait StringExtensions {
   fn cleaned(&self) -> String;
@@ -197,13 +236,18 @@ async fn fetch_and_process_page(client: &Client, page: usize) -> Result<HashMap<
 async fn update_state(page: usize) -> Result<()> {
   let mut state = read_state().await.unwrap();
   state.last_page_processed = page;
-  tokio::fs::write("state.json", serde_json::to_string_pretty(&state)?).await?;
+  let state_file = File::new("state.json");
+  state_file
+    .write(serde_json::to_string_pretty(&state)?.as_bytes())
+    .await?;
   Ok(())
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
   env_logger::init();
+
+  let posts_file = File::new("posts.json");
 
   let client = setup_client().await;
   let semaphore = Arc::new(Semaphore::new(5));
@@ -215,16 +259,13 @@ async fn main() -> Result<()> {
   );
 
   let mut posts: HashMap<u32, Value> = if Path::new("posts.json").exists() {
-    let data = tokio::fs::read_to_string("posts.json").await?;
+    let data = posts_file.read().await?;
     serde_json::from_str(&data)?
   } else {
     HashMap::new()
   };
-  // ...
 
   let state = Arc::new(Mutex::new(read_state().await.unwrap()));
-
-  // ...
 
   for page in 1..=TOTAL_PAGES {
     if page <= state.lock().unwrap().last_page_processed {
@@ -244,7 +285,9 @@ async fn main() -> Result<()> {
     .unwrap();
 
     posts.extend(fetched_posts);
-    tokio::fs::write("posts.json", serde_json::to_string_pretty(&posts)?).await?;
+    posts_file
+      .write(serde_json::to_string_pretty(&posts)?.as_bytes())
+      .await?;
     update_state(page).await?;
     progress_bar.inc(1);
   }
