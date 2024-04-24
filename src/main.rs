@@ -2,6 +2,7 @@ use std::io::{BufWriter, Write};
 use std::fs::OpenOptions;
 use std::sync::Arc;
 
+use anyhow::{Context, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 use select::predicate::{Class, Name, Predicate};
 use serde::{Deserialize, Serialize};
@@ -77,7 +78,7 @@ fn extract_quotes(node: &Node) -> Vec<i32> {
 
 fn extract_body(node: &Node) -> String {
   node
-    .find(Name("blockquote"))
+    .find(Class("baseHtml"))
     .filter(|child| !child.is(Class("bbCodeBlock")))
     .filter(|child| !child.is(Class("bbCodeQuote")))
     .map(|n| n.text())
@@ -87,45 +88,33 @@ fn extract_body(node: &Node) -> String {
     .to_string()
 }
 
-async fn fetch_and_save(page: usize, client: Client, semaphore: Arc<Semaphore>, progress_bar: Arc<ProgressBar>) {
-  let _permit = semaphore.acquire().await.unwrap();
+async fn fetch_and_save(page: usize, client: Client) -> Result<Vec<Post>> {
   let url = format!("{}{}", BASE_URL, page);
-  match client.get(&url).send().await {
-    Ok(resp) => {
-      if let Ok(text) = resp.text().await {
-        let document = Document::from(text.as_str());
-        let posts: Vec<Post> = document
-          .find(Class("message"))
-          .map(|node| {
-            Post {
-              id: extract_id(&node),
-              is_liked: extract_is_liked(&node),
-              quotes: extract_quotes(&node),
-              body: extract_body(&node),
-              page
-            }
-          })
-          .collect();
-
-        let mut file = OpenOptions::new()
-          .create(true)
-          .append(true)
-          .open("output.json")
-          .unwrap();
-        let writer = BufWriter::new(&file);
-        serde_json::to_writer(writer, &posts).unwrap();
-        writeln!(file).unwrap(); // Ensures JSON objects are written line by line
+  let resp = client
+    .get(&url)
+    .send()
+    .await
+    .context("Failed to fetch page")?;
+  let text = resp.text().await.context("Failed to fetch page")?;
+  let document = Document::from(text.as_str());
+  let posts = document
+    .find(Class("message"))
+    .map(|node| {
+      Post {
+        id: extract_id(&node),
+        is_liked: extract_is_liked(&node),
+        quotes: extract_quotes(&node),
+        body: extract_body(&node),
+        page
       }
-    }
-    Err(_) => println!("Failed to fetch page {}", page)
-  }
-  progress_bar.inc(1);
+    })
+    .collect::<Vec<_>>();
+  Ok(posts)
 }
 
 #[tokio::main]
 async fn main() {
   let client = setup_client().await;
-  let semaphore = Arc::new(Semaphore::new(3)); // Limit to 3 concurrent requests
   let progress_bar = Arc::new(ProgressBar::new(TOTAL_PAGES as u64));
   progress_bar.set_style(
     ProgressStyle::default_bar()
@@ -133,19 +122,23 @@ async fn main() {
       .expect("Failed to set progress bar style")
   );
 
-  let mut handles = vec![];
-  for page in 1..=TOTAL_PAGES {
-    let client = client.clone();
-    let semaphore = semaphore.clone();
-    let progress_bar = progress_bar.clone();
-    handles.push(tokio::spawn(async move {
-      fetch_and_save(page, client, semaphore, progress_bar).await;
-    }));
-  }
+  let page = 1;
+  let result = fetch_and_save(page, client).await.unwrap();
+  println!("{:#?}", result);
 
-  for handle in handles {
-    handle.await.unwrap();
-  }
+  // let mut handles = vec![];
+  // for page in 1..=TOTAL_PAGES {
+  //   let client = client.clone();
+  //   let semaphore = semaphore.clone();
+  //   let progress_bar = progress_bar.clone();
+  //   handles.push(tokio::spawn(async move {
+  //     fetch_and_save(page, client, semaphore, progress_bar).await;
+  //   }));
+  // }
+
+  // for handle in handles {
+  //   handle.await.unwrap();
+  // }
 
   progress_bar.finish_with_message("Download complete.");
 }
