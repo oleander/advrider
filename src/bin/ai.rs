@@ -17,6 +17,8 @@ OUTPUT:
 * Merge the list from POST and QUOTE and KEEP THESE ACCESSORIES sections.
 * If an item is mentioned often, place it higher on the list
 * Add a counter how many times the item is mentioned [x]
+* If an item has NEVER been mentioned, do not include it in the list
+* If POST and QUOTE returns nothing, return KEEP THESE ACCESSORIES
 
 EXAMPLE OUTPUT:
 * Cruise control (MC Cruise) [5]
@@ -37,7 +39,6 @@ fn main() -> Result<()> {
   let posts: BTreeMap<i64, Value> = serde_json::from_str(&posts).expect("Failed to parse JSON");
 
   let client = Client::new();
-  let mut context = json!([]);
   let mut post_ids = posts.keys().cloned().collect::<Vec<i64>>();
   let progress_bar = ProgressBar::new(post_ids.len() as u64);
   let mut str_context: Option<String> = None;
@@ -74,14 +75,14 @@ fn main() -> Result<()> {
     progress_bar.println(f_content);
     progress_bar.println("".to_string());
 
-    let mut system = SYSTEM.trim().to_string();
-    // if let Some(ref c) = str_context {
-    //   system.push_str("\n");
-    //   system.push_str(c.as_str());
-    // }
-
+    let system = SYSTEM.trim().to_string();
     let prompt = "Extract the gadgets or accessories from the posts and quotes.";
-    let prompt = format!("PROMPT:{}\n{}\nKEEP THESE ACCESSORIES:{}", prompt, content.join(" "), str_context.clone().unwrap_or_default());
+    let prompt = format!(
+      "PROMPT:{}\n{}\nKEEP THESE ACCESSORIES:{}",
+      prompt,
+      content.join(" "),
+      str_context.clone().unwrap_or_default()
+    );
 
     let request = json!({
       "prompt": prompt,
