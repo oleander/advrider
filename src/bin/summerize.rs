@@ -18,9 +18,9 @@ use log::info;
 const REDUCE_PROMPT: &str = include_str!("../../prompts/reduce.md");
 const ARTICLE: &str = include_str!("../../examples/article.md");
 const MAP_PROMPT: &str = include_str!("../../prompts/map.md");
-const MAX_CONTEXT_SIZE: usize = 2048;
+const MAX_CONTEXT_SIZE: usize = 3048;
 const MODEL_NAME: &str = "gpt-3.5-turbo";
-const MAX_INPUT_SIZE: usize = 5000;
+const MAX_INPUT_SIZE: usize = 3000;
 const TEMP: f32 = 0.1;
 
 type ID = i64;

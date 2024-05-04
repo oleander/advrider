@@ -6,7 +6,7 @@ prompts:
 
     ## Guidelines:
 
-    - Focus on non-standard parts and gadgets, such as rally towers. Do not include standard parts like wheels, as these come pre-installed with the motorcycle.
+    - Focus on non-standard parts and gadgets, such as rally towers. Exclude standard parts like wheels, as these come pre-installed with the motorcycle.
     - Your goal is to extract parts and gadgets that could potentially benefit the motorcycle owner.
     - Provide the output as a simple list, without any additional wording.
     - If no relevant parts or gadgets can be identified in the post, return the word "NOPE" and nothing else.
@@ -24,7 +24,9 @@ prompts:
 
     - If relevant parts or gadgets are identified, provide a list in the following format:
       - Part or Gadget Name: Brief Description
-    - If no relevant parts or gadgets can be identified, return "NOPE".
+    - If NO relevant parts or gadgets can be identified, return "NOPE".
+    - If NO description or brand is provided, return "NOPE".
+    - If the brand or product name is too generic, such as "Longer Suspension Option", return "NOPE".
 
     ## Input: {{post}}
 defaultTest:
