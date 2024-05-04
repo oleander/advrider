@@ -4,20 +4,23 @@
 use std::collections::BTreeMap;
 use std::fs;
 
-use llm_chain::{executor, options, parameters, prompt, Parameters};
+use reqwest::Client;
+use llm_chain::options::{ModelRef, Options};
+use llm_chain::traits::Executor;
+// use llm_chain_openai::chatgpt::Executor::for_client as chatgpt;
+use llm_chain::{executor, parameters, prompt, Parameters};
 use llm_chain::chains::map_reduce::Chain;
-use llm_chain::options::ModelRef;
+use serde::{Deserialize, Serialize};
 use llm_chain::step::Step;
 use anyhow::Result;
 use log::info;
-use serde::{Deserialize, Serialize};
 
 const REDUCE_PROMPT: &str = include_str!("../../prompts/reduce.md");
-const MAP_PROMPT: &str = include_str!("../../prompts/map.md");
 const ARTICLE: &str = include_str!("../../examples/article.md");
-const MODEL_NAME: &str = "gpt-4";
-const MAX_INPUT_SIZE: usize = 200;
+const MAP_PROMPT: &str = include_str!("../../prompts/map.md");
 const MAX_CONTEXT_SIZE: usize = 2048;
+const MODEL_NAME: &str = "llama3";
+const MAX_INPUT_SIZE: usize = 1;
 const TEMP: f32 = 0.1;
 
 type ID = i64;
@@ -67,6 +70,8 @@ async fn main() -> Result<()> {
   let posts = Posts::new()?;
   info!("Found posts: {:?}", posts.len());
 
+  // std::env::set_var("OPENAI_API_BASE_URL", "http://127.0.0.1:11434/v1");
+
   let map_prompt = Step::for_prompt_template(prompt!(MAP_PROMPT, "\n{{text}}"));
   let reduce_prompt = Step::for_prompt_template(prompt!(REDUCE_PROMPT, "\n{{text}}"));
   let chain = Chain::new(map_prompt, reduce_prompt);
@@ -77,20 +82,38 @@ async fn main() -> Result<()> {
     .collect::<Vec<&str>>()
     .join("\n");
 
-  let model = ModelRef::from_model_name(MODEL_NAME);
-  let docs = vec![parameters!(body)];
-  let api_key = API_KEY.clone();
+  use llm_chain::options;
+  // ... existing code ...
 
-  let options = options!(
-    MaxContextSize: MAX_CONTEXT_SIZE,
-    Temperature: TEMP,
-    ApiKey: api_key,
-    Model: model
-  );
+  #[tokio::main(flavor = "current_thread")]
+  async fn main() -> Result<()> {
+    env_logger::init();
 
-  let exec = executor!(chatgpt, options)?;
-  let result = chain.run(docs, Parameters::new(), &exec).await?;
-  info!("Result: {}", result);
+    let posts = Posts::new()?;
+    info!("Found posts: {:?}", posts.len());
 
+    let map_prompt = Step::for_prompt_template(prompt!(MAP_PROMPT, "\n{{text}}"));
+    let reduce_prompt = Step::for_prompt_template(prompt!(REDUCE_PROMPT, "\n{{text}}"));
+    let chain = Chain::new(map_prompt, reduce_prompt);
+    let body = posts.body();
+    let body = body
+      .lines()
+      .take(MAX_INPUT_SIZE)
+      .collect::<Vec<&str>>()
+      .join("\n");
+
+    let options = llm_chain::options::Option::options!(
+      MaxContextSize: MAX_CONTEXT_SIZE,
+      Temperature: TEMP,
+      Model: ModelRef::from_model_name(MODEL_NAME)
+    );
+
+    let client = async_openai::Client::new();
+    let exec = llm_chain_openai::chatgpt::Executor::for_client(client, options);
+
+    let docs = vec![parameters!(body)];
+    let result = chain.run(docs, Parameters::new(), &exec.clone()).await?;
+    Ok(())
+  }
   Ok(())
 }

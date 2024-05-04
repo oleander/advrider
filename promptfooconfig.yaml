@@ -1,0 +1,89 @@
+---
+
+prompts:
+  - |
+    You are an AI assistant designed to extract information about useful gadgets and non-standard parts for the Husqvarna 701 Enduro motorcycle from posts on the ADVRider forum. Your task is to identify any parts or gadgets that the author mentions positively.
+
+    ## INSTRUCTIONS:
+
+    - Identify each item by its brand and provide a brief description of the part or accessory. Format each item as follows: "<BRAND>: <DESCRIPTION>".
+    - Focus on non-standard parts and gadgets, such as rally towers. Exclude standard parts like wheels, which come pre-installed on the motorcycle.
+    - Your goal is to extract parts and gadgets that could potentially enhance the performance or functionality of the motorcycle.
+    - Present your output as a simple list, without any additional wording or context.
+    - If no relevant parts or gadgets can be identified in the post, return the word "<NOPE>" and nothing else.
+    - If you're unsure whether a part or gadget is relevant, it's better to err on the side of caution and exclude it from the list.
+
+    ## EXAMPLES:
+
+    Input:
+
+    I'm resisting putting a Rekluse Clutch in the 701 as I'm trying to avoid tempting myself to do more technical stuff than 4wd roads. I have my 450 for that type of stuff and will probably add a Rekluse to that at some point. I had a Rekluse Auto Clutch in my old 400XC and it was great for that. I'm ready to spend what I need to make the 701 run like I want it too.
+
+    Output:
+
+    - Rekluse Auto Clutch: Automatic clutch for hard terrain
+
+    ## INPUT: {{post}}
+
+
+defaultTest:
+  options:
+    provider: openai:chat:gpt-3.5-turbo
+
+providers:
+  # - id: ollama:llama3:latest
+  #   label: llama3-temp-0-1
+  #   config:
+  #     temperature: 0.1
+  #     num_ctx: 2000
+  # - id: ollama:llama3:latest
+  #   label: llama3-temp-0-9
+  #   config:
+  #     temperature: 0.9
+  # gpt-4
+  - id: openai:chat:gpt-4
+    label: gpt-4-temp-0-7
+    config:
+      temperature: 0.7
+
+  - id: openai:chat:gpt-4
+    label: gpt-4-temp-0-1
+    config:
+      temperature: 0.01
+scenarios:
+  - config:
+    - vars:
+        post: "Okay. So the Renthall Fatbar RC fits with 2.5\" Risers. Wires are fine and the HDB guards line up well. Bar is still a little off I will probably have to reset my forks/triple clamp. Not enough to matter, but enough that I am annoyed. While I am at it, was gonna do a quick update of everything in case anyone has any questions: Renthall Fatbar RC Bar: We will see HDB Ultimate Guards with top clamp, 2.5\" riser and flip out mirrors: Guards and top clamp are great. Mirrors are mehhh. Husqvarna Aluminum Radiator Guard: Does it's job Fork bleeders: Do their job Trailjammer aluminum stator and clutch cover: install was easy, holding up great Fork Saver zip on fork socks: put them on every bike, love em Steg Pegz: Love em, keeps me standing longer. Steat Concept Seat: Must Have Wings Exhaust: No explanation needed Wings carbon exhaust cover: Could take it or leave it. Had a lot of loose straands that needed cut. Perun rear plate + extension: very secure, love the setup. Only complaint is the extension plate can't fit a rotopax mount, but the base plate can. Vanasche Motorsports Shortened Kickstand: A MUST HAVE Vanasche Motorsports Kickstand plate: Good for sand/loose dirt Vanasche Motorsports minimalist racks: holding up very well, protecting the body great as I have wrecked a few times with them. I fabricated a set of rotopax plates for them which I will upload later. Vanasche Motorsports enlarged brake pedal: works good Pivot Pegz: Some people hate em/some love em. Still getting use to them but so far great for standing. Still might have to go back to my larger pegz though and put the pivot pegz on the 1190. Rottweiler Intake: Works good. Leaves enough space that I can store spare set of tubes under the seat and I carry a pack of prefilters in the secret compartment on the left side. PCV: Not much to say. Combined with the intake and exhaust, def more power. SAS/Canister delete: Did on thew 1190, reduces garbage on the bike. Mosko Moto tool roll: It is pricey and bulky, but it's bombproof and had the organization I wanted. Mosko Moto 10L Drybag: Fits the tool roll, Slime air pump/patch kit, Thor Rain pack jacket, tow traps. Mosko Moto 40L Duffel: Fits all my camping gear for 3ish days or travel stuff for the wife and I if staying in a hotel. Rok straps: Always have a couple sets. Upcoming: Turn Signals Motoz Tractionator Desert H/T Shorty clutch/brake lever Larger shift lever Rear Disc Guard and ABS line protector"
+        gadgets: |
+          - Renthall Fatbar RC: Adjustable handlebar
+          - HDB Ultimate Guards with top clamp, 2.5" riser and flip out mirrors
+          - Husqvarna Aluminum Radiator Guard: Radiator protector
+          - Fork bleeders: Fork pressure relief valves
+          - Trailjammer aluminum stator and clutch cover: Protective covers for stator and clutch
+          - Fork Saver zip on fork socks: Protective covers for forks
+          - Steg Pegz: Foot pegs designed for standing
+          - Seat Concept Seat: Comfortable motorcycle seat
+          - Wings Exhaust: Performance exhaust system
+          - Wings carbon exhaust cover: Carbon cover for exhaust system
+          - Perun rear plate + extension: Secure rear plate with extension
+          - Vanasche Motorsports Shortened Kickstand: Shortened kickstand for better balance
+          - Vanasche Motorsports Kickstand plate: Plate for kickstand, useful in sand/loose dirt
+          - Vanasche Motorsports minimalist racks: Durable racks for carrying gear
+          - Vanasche Motorsports enlarged brake pedal: Enlarged brake pedal for better control
+          - Pivot Pegz: Rotating foot pegs
+          - Rottweiler Intake: Performance air intake system
+          - PCV: Power Commander V for fuel management
+          - SAS/Canister delete: Emission control delete kit
+          - Mosko Moto tool roll: Durable tool roll for organization
+          - Mosko Moto 10L Drybag: Waterproof bag for carrying tools and gear
+          - Mosko Moto 40L Duffel: Large duffel bag for camping gear or travel items
+          - Rok straps: Adjustable straps for securing gear.
+    tests:
+      - assert:
+        - type: factuality
+          value: "{{gadgets}}"
+        - type: llm-rubric
+          value: No wrapper text followed by :, like "Output:", "Commit message:" or "##"
+        - type: llm-rubric
+          value: "Ensure output has a similar mening to {{gadgets}}"
+        - type: llm-rubric

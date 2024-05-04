@@ -5,12 +5,13 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.82"
+async-openai = "0.20.0"
 async-std = "1.12.0"
 dirs = "5.0.1"
 env_logger = "0.11.3"
 indicatif = "0.17.8"
 lazy_static = "1.4.0"
-llm-chain = "0.13.0"
+llm-chain = { git = "https://github.com/sobelio/llm-chain.git", branch = "main" }
 llm-chain-openai = "0.13.0"
 log = "0.4.21"
 rand = "0.8.5"
