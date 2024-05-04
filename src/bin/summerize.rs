@@ -8,7 +8,7 @@ use log::info;
 const REDUCE_PROMPT: &str = include_str!("/Users/linus/.config/fabric/patterns/summarize/system.md");
 const MAP_PROMPT: &str = include_str!("/Users/linus/.config/fabric/patterns/summarize/system.md");
 const ARTICLE: &str = include_str!("../../examples/article.md");
-const MODEL_NAME: &str = "gpt-3.5-turbo";
+const MODEL_NAME: &str = "gpt-4-turbo";
 
 lazy_static::lazy_static! {
   static ref API_KEY: String = std::env::var("OPENAI_API_KEY").expect("OPENAI_API_KEY not defined");
@@ -28,6 +28,8 @@ async fn main() -> Result<()> {
   let api_key = API_KEY.clone();
 
   let options = options!(
+    MaxContextSize: 4000 as usize,
+    Temperature: 0.01,
     Model: model,
     ApiKey: api_key
   );
