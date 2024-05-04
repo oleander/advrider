@@ -25,6 +25,7 @@ dependencies = [
  "async-openai 0.20.0",
  "async-std",
  "dirs",
+ "dotenv",
  "env_logger",
  "indicatif",
  "lazy_static",
@@ -762,6 +763,12 @@ dependencies = [
  "redox_users",
  "windows-sys 0.48.0",
 ]
+
+[[package]]
+name = "dotenv"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77c90badedccf4105eca100756a0b1289e191f6fcbdadd3cee1d2f614f97da8f"
 
 [[package]]
 name = "encode_unicode"
