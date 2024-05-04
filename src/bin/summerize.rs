@@ -4,11 +4,11 @@
 use std::collections::BTreeMap;
 use std::fs;
 
+use llm_chain::{executor, parameters, prompt, Parameters};
+use llm_chain::traits::Executor as ExecutorTrait;
+use llm_chain_openai::chatgpt::Executor;
 use reqwest::Client;
 use llm_chain::options::{ModelRef, Options};
-use llm_chain::traits::Executor;
-// use llm_chain_openai::chatgpt::Executor::for_client as chatgpt;
-use llm_chain::{executor, parameters, prompt, Parameters};
 use llm_chain::chains::map_reduce::Chain;
 use serde::{Deserialize, Serialize};
 use llm_chain::step::Step;
@@ -102,15 +102,13 @@ async fn main() -> Result<()> {
       .collect::<Vec<&str>>()
       .join("\n");
 
-    let options = llm_chain::options::Option::options!(
+    let options = options!(
       MaxContextSize: MAX_CONTEXT_SIZE,
       Temperature: TEMP,
-      Model: ModelRef::from_model_name(MODEL_NAME)
+      Model: MODEL.clone()
     );
 
-    let client = async_openai::Client::new();
-    let exec = llm_chain_openai::chatgpt::Executor::for_client(client, options);
-
+    let exec = Executor::new()?;
     let docs = vec![parameters!(body)];
     let result = chain.run(docs, Parameters::new(), &exec.clone()).await?;
     Ok(())

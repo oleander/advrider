@@ -28,7 +28,7 @@ dependencies = [
  "env_logger",
  "indicatif",
  "lazy_static",
- "llm-chain 0.13.0 (git+https://github.com/sobelio/llm-chain.git?branch=main)",
+ "llm-chain",
  "llm-chain-openai",
  "log",
  "rand",
@@ -1605,31 +1605,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "llm-chain"
-version = "0.13.0"
-source = "git+https://github.com/sobelio/llm-chain.git?branch=main#5e153919fd2d900b66c2ea0d51c5ca1a520ad8da"
-dependencies = [
- "anyhow",
- "async-trait",
- "derive_builder 0.12.0",
- "futures",
- "lazy_static",
- "markdown",
- "paste",
- "reqwest 0.11.27",
- "serde",
- "serde_json",
- "serde_yaml",
- "strum 0.25.0",
- "strum_macros 0.25.3",
- "tera",
- "thiserror",
- "tokio",
- "tokio-stream",
- "uuid",
-]
-
-[[package]]
 name = "llm-chain-openai"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1638,7 +1613,7 @@ dependencies = [
  "async-openai 0.16.3",
  "async-trait",
  "futures",
- "llm-chain 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "llm-chain",
  "serde",
  "strum 0.24.1",
  "strum_macros 0.24.3",
