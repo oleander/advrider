@@ -1,0 +1,162 @@
+---
+
+prompts:
+  - |
+    You are an AI assistant designed to extract information about useful gadgets and non-standard motorcycle parts from the ADVRider forum, specifically for the Husqvarna 701 Enduro motorcycle. You will be provided with a post from the forum, and your task is to identify any parts or gadgets that the author discusses positively.
+
+    ## Guidelines:
+
+    - Focus on non-standard parts and gadgets, such as rally towers. Do not include standard parts like wheels, as these come pre-installed with the motorcycle.
+    - Your goal is to extract parts and gadgets that could potentially benefit the motorcycle owner.
+    - Provide the output as a simple list, without any additional wording.
+    - If no relevant parts or gadgets can be identified in the post, return the word "NOPE" and nothing else.
+    - If you're unsure about a part or gadget, it's better to skip it and move on.
+
+    ## Example Input:
+
+    I'm resisting putting a Rekluse Clutch in the 701 as I'm trying to avoid tempting myself to do more technical stuff than 4wd roads. I have my 450 for that type of stuff and will probably add a Rekluse to that at some point. I had a Rekluse Auto Clutch in my old 400XC and it was great for that. I'm ready to spend what I need to make the 701 run like I want it too.
+
+    ## Example Output:
+
+    - Rekluse Auto Clutch: Automatic clutch for hard terrain
+
+    ## Output:
+
+    - If relevant parts or gadgets are identified, provide a list in the following format:
+      - Part or Gadget Name: Brief Description
+    - If no relevant parts or gadgets can be identified, return "NOPE".
+
+    ## Input: {{post}}
+defaultTest:
+  options:
+    provider: openai:chat:gpt-3.5-turbo
+
+providers:
+  - id: openai:chat:gpt-3.5-turbo
+    label: gpt-3-5-turbo-temp-0-1
+    config:
+      temperature: 0.1
+
+
+tests:
+- vars:
+    post: >-
+      Just finished setting up my 701 with a custom skid plate I designed.
+      It's much more robust than the stock and covers vital parts better for
+      when I'm out on rough terrain. Also, threw a lightweight lithium battery
+      in there to cut down on the weight, and it's made a noticeable
+      difference in handling. Thinking of adding a high-flow air filter next.
+- vars:
+    post: >-
+      Couldn't be happier with the new GPS mount I installed; it’s a
+      game-changer for long rides. I paired it with an uprated suspension
+      system to handle those back roads more comfortably. I'm eyeing a
+      high-performance exhaust system next to really let the engine breathe.
+      Has anyone tried the latest from Akrapovic?
+- vars:
+    post: >-
+      I've just swapped out the stock tires for a set of dual-sport ones that
+      are supposedly better for both on and off-road. They feel pretty good on
+      the pavement so far, not too noisy. Additionally, I decided to upgrade
+      the headlight to an LED for better nighttime visibility. Next on the
+      list is a softer seat for those longer treks. Wondering if anyone has
+      recommendations?
+- vars:
+    post: >-
+      Just upgraded my 701 with a custom skid plate and radiator guard from a
+      local manufacturer, really ups the protection without adding much
+      weight. Also, installed a Scotts Steering Damper for those rough trails,
+      makes a world of difference in handling. Lastly, couldn't resist adding
+      a high-lift camshaft for a bit more grunt. Already loving the
+      improvements!
+- vars:
+    post: >-
+      Was skeptical at first, but after installing a set of ultra-bright LED
+      auxiliary lights, my night rides have transformed completely. The
+      visibility is incredible. Also added an aftermarket fuel mapping system
+      to tweak performance. It's like riding a completely different bike now.
+      Thoughts on GPS trackers for added security?
+- vars:
+    post: >-
+      Debating whether to fit a high-flow air filter and a performance exhaust
+      system. Read some forums saying it significantly boosts the power curve
+      and overall performance but worried about voiding the warranty. Has
+      anyone tried these on their 701 Enduro?
+- vars:
+    post: >-
+      Just finished installing a Scotts Steering Stabilizer on my 701. Took it
+      out for a spin in some heavy crosswinds, and the difference is night and
+      day. Also threw on a set of aftermarket handlebars – much better
+      ergonomics now. Highly recommend both for anyone looking to improve
+      handling and comfort.
+- vars:
+    post: >-
+      Managed to get my hands on a custom skid plate designed specifically for
+      the 701 by a local fabricator. This thing is a tank! Plus, I installed a
+      high-flow air filter and a Power Commander for a little extra oomph. The
+      bike feels alive now!
+- vars:
+    post: >-
+      Spent the weekend fitting a new LED headlight unit and a pair of
+      auxiliary lights. Visibility at night is so much better now. I was
+      hesitant about drilling into the fairing for the aux lights, but it was
+      well worth it. Also added a GPS mount on the dash, perfect for my
+      backcountry adventures.
+- vars:
+    post: >-
+      Just finished a 1000 mile trip with the new Pivot Pegz Mark 3 installed
+      on my 701. Couldn't believe the difference it made in comfort and
+      control. Also added a Garmin Zumo XT as the default navigation was
+      lacking. The Zumo XT's interface and rugged design is perfect for the
+      backcountry roads I like to explore.
+- vars:
+    post: >-
+      Has anyone tried the Rade Garage under seat fuel tank? Installed it last
+      month and it's been a game changer for longer trips, significantly
+      extending my range. Additionally, I swapped out the stock seat for a
+      Seat Concepts Comfort model, and the difference in ride comfort is
+      phenomenal. Highly recommended for anyone looking to do longer rides.
+- vars:
+    post: >-
+      I'm on the fence about installing an aftermarket exhaust. I've been
+      eyeing the Akrapovič but worried about the noise level. In the meantime,
+      I upgraded the headlight to a Baja Designs Squadron Pro LED and it's
+      like night and day compared to the stock light. If you ride at night,
+      this is a must-have upgrade.
+- vars:
+    post: >-
+      Just finished installing a high-lift cam and a lightweight flywheel on
+      my 701 Enduro. The difference in throttle response and pickup is night
+      and day! Also added a Scotts steering damper for those longer rides,
+      it's made a huge improvement in handling stability at high speeds.
+- vars:
+    post: >-
+      Managed to get a custom-built luggage rack and pannier system from a
+      local fabricator for my Husqvarna 701. It's designed specifically for
+      lightweight adventure touring, ensuring it doesn't interfere with the
+      bike's handling. Also, I've swapped the standard headlight for an LED
+      unit, greatly improving night visibility without adding much weight.
+- vars:
+    post: >-
+      No modifications yet, just enjoying the bike as is. I've been thinking
+      about getting some protective gear for it, though. Maybe some engine
+      guards or a skid plate, but haven't decided yet. It's hard to choose
+      with so many options out there.
+- assert:
+  - type: llm-rubric
+    value: >-
+      No wrapper text followed by : (colon), i.e
+      <START>Output:
+      <START>Commit message:
+      <START>##
+      Where <START> is the start of the string.
+  - type: llm-rubric
+    value: Ensure {{post}} is correctly processed and the output is a list of gadgets mentioned in the post.
+  - type: llm-rubric
+    value: "Ensure the output is a list of gadgets mentioned in: {{post}}"
+  - type: llm-rubric
+    value: >-
+      Ensure the output is a valid markdown list that:
+        - Does NOT contain **bold** or _italic_ formatting.
+        - Uses the format `- <BRAND> <PRODUCT>: <DESCRIPTION>` for each item.
+        - Does not contain any additional text or formatting.

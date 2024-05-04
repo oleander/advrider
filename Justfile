@@ -12,3 +12,6 @@ summerize:
 ollama-start:
   killall Ollama || true
   ollama serve
+
+config-map:
+  promptfoo eval -c promptfoo/map-promptfooconfig.yaml
