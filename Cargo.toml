@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-spider = { version = "=1.93.13" }
+spider = { version = "1.93.13", features = ["cache"] }
 # llm-chain-openai = { path = "/Users/linus/Code/llm-chain/crates/llm-chain-openai" }
 # llm-chain = { path = "/Users/linus/Code/llm-chain/crates/llm-chain" }
 

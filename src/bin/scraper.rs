@@ -46,7 +46,7 @@ async fn fetch(url: &str) -> Result<String> {
 
   let mut website = Website::new(url)
     .with_openai(openai().await.ok())
-    // .with_caching(true)
+    .with_caching(true)
     .with_subdomains(false)
     .with_redirect_limit(2)
     .with_headers(header()?)
