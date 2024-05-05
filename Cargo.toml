@@ -29,6 +29,7 @@ scrub = "0.1.0"
 dirs = "5.0.1"
 log = "0.4.21"
 rand = "0.8.5"
+html2text = "0.12.5"
 
 ## override settings for tiktoken-rs
 [patch.crates-io.tiktoken-rs]

@@ -22,7 +22,7 @@ const ARTICLE: &str = include_str!("../../examples/article.md");
 const MAP_PROMPT: &str = include_str!("../../prompts/map.md");
 // const MAX_CONTEXT_SIZE: usize = 3048;
 const MODEL_NAME: &str = "gpt-3.5-turbo";
-const MAX_INPUT_SIZE: usize = 2000000_usize;
+const MAX_INPUT_SIZE: usize = 30000_usize;
 // const TEMP: f32 = 0.1;
 
 type ID = i64;
@@ -75,11 +75,13 @@ async fn main() -> Result<()> {
   let map_prompt = Step::for_prompt_template(prompt!(MAP_PROMPT, "\n{{text}}"));
   let reduce_prompt = Step::for_prompt_template(prompt!(REDUCE_PROMPT, "\n{{text}}"));
   let chain = Chain::new(map_prompt, reduce_prompt);
+
   let body = posts
     .body()
     .chars()
     .take(MAX_INPUT_SIZE)
     .collect::<String>();
+
   let model = ModelRef::from_model_name(MODEL_NAME);
 
   let options = options!(
@@ -106,7 +108,8 @@ async fn main() -> Result<()> {
   };
 
   // Write raw to results.md
-  let output = raw.context("Something failed")?;
-  info!("Writing calculated result to {} @ {} bytes", "results.md", output.len());
-  fs::write("results.md", output).context("Unable to write file")
+  let output = html2text::from_read(raw.context("Something failed")?.as_bytes(), usize::MAX);
+  let result_path = "data/results.md";
+  info!("Writing calculated result to {} @ {} bytes", result_path, output.len());
+  fs::write(result_path, output).context("Unable to write file")
 }

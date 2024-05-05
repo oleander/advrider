@@ -1,0 +1,31 @@
+version: "3.8"
+
+services:
+  scraper:
+    depends_on:
+      - proxy
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./data:/app/data
+    env_file: .env
+    environment:
+      PROXY_URL: http://proxy:3128
+    restart: on-failure
+
+  proxy:
+    image: zhaowde/rotating-tor-http-proxy
+    ports:
+      - 3128:3128
+      - 4444:4444
+    environment:
+      TOR_INSTANCES: 10
+      TOR_REBUILD_INTERVAL: 1800
+    restart: always
+    healthcheck:
+      test: curl -sx http://proxy:4444 ifconfig.io
+      interval: 10m
+      timeout: 10s
+      retries: 3
+

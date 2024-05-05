@@ -22,3 +22,7 @@ worker:
 
 proxy:
   docker run -it -p 8118:8118 -p 9050:9050 -e TORUSER=root dperson/torproxy -b 200
+
+scrape:
+  docker compose build
+  docker compose up --abort-on-container-exit
