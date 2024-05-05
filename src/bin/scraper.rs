@@ -1,4 +1,7 @@
+use std::time::Duration;
+
 use spider::configuration::{Configuration, GPTConfigs};
+use spider::moka::future::Cache;
 use reqwest::header::{self, HeaderMap};
 use anyhow::{Context, Result};
 use spider::website::Website;
@@ -44,13 +47,25 @@ async fn main() -> Result<()> {
 async fn fetch(url: &str) -> Result<String> {
   log::info!("Starting ...");
 
+  let cache = Cache::builder()
+    .time_to_live(Duration::from_secs(30 * 60))
+    .time_to_idle(Duration::from_secs(5 * 60))
+    .max_capacity(10_000)
+    .build();
+
+  let system_path = "/Users/linus/.config/fabric/patterns/summarize/system.md";
+  let system_prompt = tokio::fs::read_to_string(system_path).await?;
+  let openai_config = GPTConfigs::new_multi_cache(OPENAI_MODEL, vec![&system_prompt], OPENAI_MAX_TOKEN, Some(cache));
+
   let mut website = Website::new(url)
-    .with_openai(openai().await.ok())
-    .with_caching(true)
+    .with_openai(openai_config.into())
+    .with_headers(header()?)
     .with_subdomains(false)
     .with_redirect_limit(2)
-    .with_headers(header()?)
     .with_config(config())
+    .with_caching(true)
+    .with_caching(true)
+    .with_limit(1)
     .build()
     .context("Could not build webpage")?;
 
@@ -69,13 +84,6 @@ async fn fetch(url: &str) -> Result<String> {
   log::info!("Done downloading {} bytes", len);
 
   Ok(content)
-}
-
-async fn openai() -> Result<GPTConfigs> {
-  let system_path = "/Users/linus/.config/fabric/patterns/summarize/system.md";
-  let system_prompt = tokio::fs::read_to_string(system_path).await?;
-  let config = GPTConfigs::new(OPENAI_MODEL, &system_prompt, OPENAI_MAX_TOKEN);
-  Ok(config)
 }
 
 fn config() -> Configuration {
