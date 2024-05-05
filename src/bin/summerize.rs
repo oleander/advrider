@@ -23,7 +23,7 @@ const ARTICLE: &str = include_str!("../../examples/article.md");
 const MAP_PROMPT: &str = include_str!("../../prompts/map.md");
 const MAX_CONTEXT_SIZE: usize = 3048;
 const MODEL_NAME: &str = "gpt-3.5-turbo";
-const MAX_INPUT_SIZE: usize = 300;
+const MAX_INPUT_SIZE: usize = 1000;
 const TEMP: f32 = 0.1;
 
 type ID = i64;
@@ -78,11 +78,11 @@ async fn main() -> Result<()> {
   let chain = Chain::new(map_prompt, reduce_prompt);
 
   let body = posts.body();
-  let body = body
-    .lines()
-    .take(MAX_INPUT_SIZE)
-    .collect::<Vec<&str>>()
-    .join("\n");
+  // let body = body
+  //   .lines()
+  //   .take(MAX_INPUT_SIZE)
+  //   .collect::<Vec<&str>>()
+  //   .join("\n");
 
   let options = options!(
     MaxContextSize: MAX_CONTEXT_SIZE,
