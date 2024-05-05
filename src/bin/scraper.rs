@@ -30,12 +30,14 @@ async fn main() -> Result<()> {
 
   let mut acc = vec![];
   for handle in handles {
-    let response = handle.await;
-    acc.push(response);
-    log::info!("Removed {} bytes over handler", response.len());
+    let response = handle.await?.context("Handler could not be completed")?;
+    let r1 = response.clone();
+    let r2 = response.clone();
+
+    acc.push(r1);
+    log::info!("Removed {} bytes over handler", r2.len());
   }
-  let total: Result<Vec<String>, _> = acc.into_iter().collect();
-  let total = total.unwrap().join("\n");
+  let total = acc.join("\n");
   log::info!("Received in total {} bytes", total.len());
 
   Ok(())
@@ -51,7 +53,7 @@ async fn fetch(url: &str) -> Result<String> {
   let mut content = String::new();
   for page in (*body).iter() {
     let html = page.get_html();
-    content.add(&html);
+    content.push_str(&html);
     log::info!("Adding {} bytes", html.len());
   }
 
