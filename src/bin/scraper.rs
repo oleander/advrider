@@ -1,13 +1,20 @@
+use std::ops::Add;
+
 use async_openai::config::OpenAIConfig;
 use spider::configuration::{Configuration, GPTConfigs};
 use reqwest::header::{self, HeaderMap};
 use spider::website::Website;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use spider::tokio;
 
-const CAPACITY: usize = 1;
+const URL: &str = "https://advrider.com/f/threads/husqvarna-701-super-moto-and-enduro.1086621";
+const OPENAI_MODEL: &str = "gpt-4-turbo-preview";
+const CRAWL_LIST: [&str; CAPACITY] = [URL];
+const AGENT_NAME: &str = "Lisa Eriksson";
 const OPENAI_MAX_TOKEN: u16 = 512;
-const CRAWL_LIST: [&str; CAPACITY] = ["https://advrider.com/f/threads/husqvarna-701-super-moto-and-enduro.1086621"];
+const RESPECT_ROBOT: bool = true;
+const REDIRECT_LIMIT: usize = 2;
+const CAPACITY: usize = 1;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -16,39 +23,45 @@ async fn main() -> Result<()> {
   let mut handles = Vec::with_capacity(CAPACITY);
 
   for url in CRAWL_LIST {
-    website.crawl().await;
-
-    let handle = tokio::spawn(async move {
-      log::info!("Starting ...");
-
-      website.crawl().await;
-
-      let separator = "-".repeat(url.len());
-
-      let Some(body) = website.get_pages() else {
-        log::error!("Could not get page");
-        return;
-      };
-
-      for page in (*body).iter() {
-        let html = page.get_html();
-        log::info!("{}{}{}", separator, html.len(), separator);
-      }
-
-      log::info!("Done downloading");
-    });
+    let handle = tokio::spawn(async move { fetch(url).await });
 
     handles.push(handle);
   }
 
+  let mut acc = vec![];
   for handle in handles {
-    let _ = handle.await;
+    let response = handle.await;
+    acc.push(response);
+    log::info!("Removed {} bytes over handler", response.len());
   }
+  let total: Result<Vec<String>, _> = acc.into_iter().collect();
+  let total = total.unwrap().join("\n");
+  log::info!("Received in total {} bytes", total.len());
 
   Ok(())
 }
 
-fn header() -> Result<Optional<HeaderMap>> {
+async fn fetch(url: &str) -> Result<String> {
+  log::info!("Starting ...");
+
+  let mut webpage = webpage(url).await?;
+  webpage.crawl().await;
+  let body = webpage.get_pages().context("No web page received")?;
+
+  let mut content = String::new();
+  for page in (*body).iter() {
+    let html = page.get_html();
+    content.add(&html);
+    log::info!("Adding {} bytes", html.len());
+  }
+
+  let len = content.len();
+  log::info!("Done downloading {} bytes", len);
+
+  Ok(content)
+}
+
+fn header() -> Result<Option<HeaderMap>> {
   let mut headers = HeaderMap::new();
   headers.insert(header::ACCEPT, "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7".parse().unwrap());
   headers.insert(header::ACCEPT_LANGUAGE, "en-GB,en-US;q=0.9,en;q=0.8,sv;q=0.7".parse().unwrap());
@@ -61,28 +74,24 @@ fn header() -> Result<Optional<HeaderMap>> {
 async fn openai() -> Result<GPTConfigs> {
   let system_path = "/Users/linus/.config/fabric/patterns/summarize/system.md";
   let system_prompt = tokio::fs::read_to_string(system_path).await?;
-  let config = GPTConfigs::new("gpt-4-turbo-preview", &system_prompt, OPENAI_MAX_TOKEN);
+  let config = GPTConfigs::new(OPENAI_MODEL, &system_prompt, OPENAI_MAX_TOKEN);
   Ok(config)
 }
 
 fn config() -> Configuration {
   Configuration::new()
-    .with_user_agent(Some("SpiderBot"))
-    .with_blacklist_url(Some(Vec::from(["https://spider.cloud/resume".into()])))
-    .with_subdomains(false)
-    .with_tld(false)
-    .with_redirect_limit(3)
-    .with_respect_robots_txt(true)
-    .with_external_domains(Some(Vec::from(["http://loto.rsseau.fr/"].map(|d| d.to_string())).into_iter()))
+    .with_respect_robots_txt(RESPECT_ROBOT)
+    .with_redirect_limit(REDIRECT_LIMIT)
+    .with_user_agent(Some(AGENT_NAME))
     .build()
 }
 
-fn webpage() -> Website {
+async fn webpage(url: &str) -> Result<Website> {
   Website::new(url)
-    .with_openai(openai.clone())
-    .with_config(config())
+    .with_openai(openai().await.ok())
     .with_headers(header()?)
+    .with_config(config())
     .with_caching(true)
     .build()
-    .unwrap();
+    .context("Could not build webpage")
 }
