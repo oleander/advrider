@@ -15,3 +15,7 @@ ollama-start:
 
 config-map:
   promptfoo eval -c promptfoo/map-promptfooconfig.yaml
+
+worker:
+  RUST_LOG=info SPIDER_WORKER_PORT=3030 spider_worker
+  SPIDER_WORKER=http://127.0.0.1:3030 cargo run --bin scraper

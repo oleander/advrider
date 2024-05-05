@@ -7,6 +7,7 @@ use spider::configuration::{Configuration, GPTConfigs};
 use spider::website::Website;
 use spider::tokio;
 use anyhow::{Context, Result};
+use tokio::io::stdout;
 
 const CAPACITY: usize = 1;
 const CRAWL_LIST: [&str; CAPACITY] = ["https://advrider.com/f/threads/husqvarna-701-super-moto-and-enduro.1086621"];
@@ -21,9 +22,9 @@ fn header() -> Result<HeaderMap> {
   Ok(headers)
 }
 
-
 #[tokio::main]
 async fn main() -> Result<()> {
+  env_logger::init();
 
   let config = Configuration::new()
     .with_user_agent(Some("SpiderBot"))
@@ -39,41 +40,38 @@ async fn main() -> Result<()> {
 
   let system = std::fs::read_to_string("/Users/linus/.config/fabric/patterns/summarize/system.md").unwrap();
   let openai = Some(GPTConfigs::new("gpt-4-turbo-preview", &system, 512));
-  for website_url in CRAWL_LIST {
-    let req = Website::new(website_url)
+  for url in CRAWL_LIST {
+    let mut website = Website::new(url)
       .with_openai(openai.clone())
       .with_config(config.to_owned())
       .with_headers(Some(header()?.clone()))
       .with_caching(true)
-      .build();
+      .build()
+      .unwrap();
 
-    match req {
-      Ok(mut website) => {
-        let handle = tokio::spawn(async move {
-          println!("Starting Crawl - {:?}", website.get_url().inner());
+    website.crawl().await;
 
-          let start = Instant::now();
-          website.crawl().await;
-          let duration = start.elapsed();
+    let handle = tokio::spawn(async move {
+      log::info!("Starting ...");
 
-          let links = website.get_links();
+      website.crawl().await;
 
-          for link in links {
-            println!("- {:?}", link.as_ref());
-          }
+      let separator = "-".repeat(url.len());
 
-          println!(
-            "{:?} - Time elapsed in website.crawl() is: {:?} for total pages: {:?}",
-            website.get_url().inner(),
-            duration,
-            links.len()
-          );
-        });
+      let Some(body) = website.get_pages() else {
+        log::error!("Could not get page");
+        return;
+      };
 
-        handles.push(handle);
-      }
-      Err(e) => println!("{:?}", e)
-    }
+      for page in (*body).iter() {
+        let html = page.get_html();
+        log::info!("{}{}{}", separator, html.len(), separator);
+       }
+
+      log::info!("Done downloading");
+    });
+
+    handles.push(handle);
   }
 
   for handle in handles {
