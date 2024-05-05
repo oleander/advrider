@@ -4,25 +4,28 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0.82"
+spider = { version = "=1.93.13" }
+# llm-chain-openai = { path = "/Users/linus/Code/llm-chain/crates/llm-chain-openai" }
+# llm-chain = { path = "/Users/linus/Code/llm-chain/crates/llm-chain" }
+
+llm-chain-openai = "0.12.3"
+llm-chain = "*"
+
+reqwest = { version = "0.12.4", features = ["blocking", "json"] }
+serde = { version = "1.0.198", features = ["derive"] }
+tokio = { version = "1.37.0", features = ["full"] }
 async-openai = "0.20.0"
-async-std = "1.12.0"
-dirs = "5.0.1"
-dotenv = "0.15.0"
+serde_json = "1.0.116"
 env_logger = "0.11.3"
-indicatif = "0.17.8"
 lazy_static = "1.4.0"
-llm-chain = { path = "/Users/linus/Code/llm-chain/crates/llm-chain" }
-llm-chain-openai = { path = "/Users/linus/Code/llm-chain/crates/llm-chain-openai" }
+async-std = "1.12.0"
+indicatif = "0.17.8"
+anyhow = "1.0.82"
+dotenv = "0.15.0"
+unicase = "2.7.0"
+regex = "1.10.4"
+select = "0.6.0"
+scrub = "0.1.0"
+dirs = "5.0.1"
 log = "0.4.21"
 rand = "0.8.5"
-regex = "1.10.4"
-reqwest = { version = "0.12.4", features = ["blocking", "json"] }
-scrub = "0.1.0"
-select = "0.6.0"
-serde = { version = "1.0.198", features = ["derive"] }
-serde_json = "1.0.116"
-spider = { version = "1.93.13", features = ["openai", "cookies", "cache", "glob"] }
-tiktoken-rs = "0.5.7"
-tokio = { version = "1.37.0", features = ["full"] }
-unicase = "2.7.0"
