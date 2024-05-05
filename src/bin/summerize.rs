@@ -4,6 +4,7 @@
 use std::collections::BTreeMap;
 use std::fs;
 
+use llm_chain::model_opt::ModelOpt;
 use llm_chain::{executor, options, parameters, prompt, Parameters};
 use llm_chain::traits::Executor as ExecutorTrait;
 use llm_chain_openai::chatgpt::Executor;
@@ -15,12 +16,14 @@ use llm_chain::step::Step;
 use anyhow::Result;
 use log::info;
 
+use tiktoken_rs::tokenizer::Tokenizer;
+
 const REDUCE_PROMPT: &str = include_str!("../../prompts/reduce.md");
 const ARTICLE: &str = include_str!("../../examples/article.md");
 const MAP_PROMPT: &str = include_str!("../../prompts/map.md");
 const MAX_CONTEXT_SIZE: usize = 3048;
 const MODEL_NAME: &str = "gpt-3.5-turbo";
-const MAX_INPUT_SIZE: usize = 3000;
+const MAX_INPUT_SIZE: usize = 300;
 const TEMP: f32 = 0.1;
 
 type ID = i64;
@@ -60,7 +63,7 @@ impl Posts {
 
 lazy_static::lazy_static! {
   static ref API_KEY: String = std::env::var("OPENAI_API_KEY").expect("OPENAI_API_KEY not defined");
-  static ref MODEL: ModelRef = ModelRef::from_model_name(MODEL_NAME);
+  // static ref MODEL: ModelRef = ModelRef::from_model_name(MODEL_NAME);
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -84,7 +87,7 @@ async fn main() -> Result<()> {
   let options = options!(
     MaxContextSize: MAX_CONTEXT_SIZE,
     Temperature: TEMP,
-    Model: MODEL.clone(),
+    Model: ModelOpt::new(MODEL_NAME.to_string()),
     NThreads: (1 as usize),
     RepeatPenaltyLastN: (1 as usize)
   );

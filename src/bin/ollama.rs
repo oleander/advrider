@@ -11,7 +11,7 @@ async fn main() {
   dotenv::dotenv().ok();
 
   let api_key = std::env::var("OPENAI_API_KEY").expect("OPENAI_API_KEY must be set");
-  let api_host = std::env::var("OPENAI_API_HOST").expect("OPENAI_API_HOST must be set");
+  let api_host = "http://localhost:11434/v1";
   let api_model = "llama3:latest";
   let max_tokens = 512u16;
 
@@ -29,7 +29,7 @@ async fn main() {
   let client = Client::with_config(
     OpenAIConfig::new()
       .with_api_key(&api_key)
-      .with_api_base(&api_host)
+      .with_api_base(api_host)
   );
   let request = match CreateChatCompletionRequestArgs::default()
     .model(api_model)

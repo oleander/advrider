@@ -39,6 +39,7 @@ dependencies = [
  "select",
  "serde",
  "serde_json",
+ "tiktoken-rs",
  "tokio",
  "unicase",
 ]
@@ -1588,8 +1589,6 @@ checksum = "01cda141df6706de531b6c46c3a33ecca755538219bd484262fa09410c13539c"
 [[package]]
 name = "llm-chain"
 version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0921c2c333c11d9806c650237e9a345562767afec314035dabc073fbc14e60f4"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1606,6 +1605,7 @@ dependencies = [
  "strum_macros 0.25.3",
  "tera",
  "thiserror",
+ "tiktoken-rs",
  "tokio",
  "tokio-stream",
  "uuid",
@@ -1614,8 +1614,6 @@ dependencies = [
 [[package]]
 name = "llm-chain-openai"
 version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "738bdfe657582e6fcaa976b5d32626337d6039526219c5cd0ba0bbc0744ab9b2"
 dependencies = [
  "async-openai 0.16.3",
  "async-trait",
