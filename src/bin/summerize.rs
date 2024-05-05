@@ -21,10 +21,10 @@ use tiktoken_rs::tokenizer::Tokenizer;
 const REDUCE_PROMPT: &str = include_str!("../../prompts/reduce.md");
 const ARTICLE: &str = include_str!("../../examples/article.md");
 const MAP_PROMPT: &str = include_str!("../../prompts/map.md");
-const MAX_CONTEXT_SIZE: usize = 3048;
+// const MAX_CONTEXT_SIZE: usize = 3048;
 const MODEL_NAME: &str = "gpt-3.5-turbo";
 const MAX_INPUT_SIZE: usize = 1000;
-const TEMP: f32 = 0.1;
+// const TEMP: f32 = 0.1;
 
 type ID = i64;
 
@@ -73,23 +73,19 @@ async fn main() -> Result<()> {
   let posts = Posts::new()?;
   info!("Found posts: {:?}", posts.len());
 
+  let model = ModelOpt::new(MODEL_NAME.to_string());
   let map_prompt = Step::for_prompt_template(prompt!(MAP_PROMPT, "\n{{text}}"));
   let reduce_prompt = Step::for_prompt_template(prompt!(REDUCE_PROMPT, "\n{{text}}"));
   let chain = Chain::new(map_prompt, reduce_prompt);
-
   let body = posts.body();
-  // let body = body
-  //   .lines()
-  //   .take(MAX_INPUT_SIZE)
-  //   .collect::<Vec<&str>>()
-  //   .join("\n");
 
   let options = options!(
-    MaxContextSize: MAX_CONTEXT_SIZE,
-    Temperature: TEMP,
-    Model: ModelOpt::new(MODEL_NAME.to_string()),
-    NThreads: (1 as usize),
-    RepeatPenaltyLastN: (1 as usize)
+    RepeatPenaltyLastN: 1_usize,
+    MaxContextSize: 3048_usize,
+    MaxBatchSize: 3000_usize,
+    Temperature: 0.01_f32,
+    NThreads: 1_usize,
+    Model: model
   );
 
   let exec = executor!(chatgpt, options)?;
