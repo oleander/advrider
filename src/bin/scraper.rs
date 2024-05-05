@@ -7,7 +7,7 @@ use anyhow::{Context, Result};
 use spider::website::Website;
 use spider::tokio;
 
-const URL: &str = "https://advrider.com/f/threads/husqvarna-701-super-moto-and-enduro.1086621/page-[1-3]";
+const URL: &str = "https://advrider.com/f/threads/husqvarna-701-super-moto-and-enduro.1086621/page-[1-30]";
 const OPENAI_MODEL: &str = "gpt-3.5-turbo";
 const CRAWL_LIST: [&str; CAPACITY] = [URL];
 const AGENT_NAME: &str = "Lisa Eriksson";
