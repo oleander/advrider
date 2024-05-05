@@ -1,17 +1,16 @@
 use std::time::Duration;
 
-use spider::configuration::{Configuration, GPTConfigs};
+use spider::configuration::{Configuration, GPTConfigs, WaitForIdleNetwork};
 use spider::moka::future::Cache;
 use reqwest::header::{self, HeaderMap};
 use anyhow::{Context, Result};
 use spider::website::Website;
 use spider::tokio;
 
-const URL: &str = "https://advrider.com/f/threads/husqvarna-701-super-moto-and-enduro.1086621/page-[1-30]";
+const URL: &str = "https://advrider.com/f/threads/husqvarna-701-super-moto-and-enduro.1086621/page-[1-5]";
 const OPENAI_MODEL: &str = "gpt-3.5-turbo";
 const CRAWL_LIST: [&str; CAPACITY] = [URL];
 const AGENT_NAME: &str = "Lisa Eriksson";
-const ENABLE_WEB_CACHE: bool = false;
 const OPENAI_MAX_TOKEN: u16 = 512;
 const RESPECT_ROBOT: bool = true;
 const REDIRECT_LIMIT: usize = 2;
@@ -53,31 +52,26 @@ async fn fetch(url: &str) -> Result<String> {
     .max_capacity(10_000)
     .build();
 
+  let network_config = Some(WaitForIdleNetwork::new(Some(Duration::from_micros(100))));
   let system_path = "/Users/linus/.config/fabric/patterns/summarize/system.md";
   let system_prompt = tokio::fs::read_to_string(system_path).await?;
-  let openai_config = GPTConfigs::new_multi_cache(OPENAI_MODEL, vec![&system_prompt], OPENAI_MAX_TOKEN, Some(cache));
+  let openai_config = GPTConfigs::new_multi_cache(OPENAI_MODEL, vec![&system_prompt], OPENAI_MAX_TOKEN, Some(cache)).into();
 
   let mut website = Website::new(url)
-    .with_openai(openai_config.into())
+    .with_wait_for_idle_network(network_config)
+    .with_openai(openai_config)
     .with_headers(header()?)
     .with_subdomains(false)
     .with_redirect_limit(2)
     .with_config(config())
     .with_caching(true)
-    .with_caching(true)
     .with_tld(false)
-    .with_limit(1)
+    .with_limit(5)
     .build()
     .context("Could not build webpage")?;
 
-  website
-    .configuration
-    .blacklist_url
-    .insert(Default::default())
-    .push("https://advrider.com/xxx".into());
-
   website.crawl().await;
-  website.scrape().await;
+  // website.scrape().await;
 
   let body = website.get_pages().context("No web page received")?;
 
