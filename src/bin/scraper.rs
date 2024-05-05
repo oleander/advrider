@@ -56,7 +56,7 @@ async fn fetch(url: &str) -> Result<String> {
   let openai_config =
     GPTConfigs::new_multi_cache(OPENAI_MODEL, vec![&system_prompt], OPENAI_MAX_TOKEN, Some(cache)).into();
 
-  info!("Building request object to fetch website ...")
+  info!("Building request object to fetch website ...");
   let mut website = Website::new(url)
     .with_wait_for_idle_network(network_config)
     .with_user_agent(USER_AGENT.into())
