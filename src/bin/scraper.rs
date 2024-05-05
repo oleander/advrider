@@ -7,7 +7,7 @@ use anyhow::{Context, Result};
 use spider::website::Website;
 use spider::tokio;
 
-const URL: &str = "https://advrider.com/f/threads/husqvarna-701-super-moto-and-enduro.1086621/page-[1-2314]";
+const URL: &str = "https://advrider.com/f/threads/husqvarna-701-super-moto-and-enduro.1086621/page-[1-3]";
 const OPENAI_MODEL: &str = "gpt-3.5-turbo";
 const CRAWL_LIST: [&str; CAPACITY] = [URL];
 const AGENT_NAME: &str = "Lisa Eriksson";
@@ -65,10 +65,18 @@ async fn fetch(url: &str) -> Result<String> {
     .with_config(config())
     .with_caching(true)
     .with_caching(true)
+    .with_tld(false)
     .with_limit(1)
     .build()
     .context("Could not build webpage")?;
 
+  website
+    .configuration
+    .blacklist_url
+    .insert(Default::default())
+    .push("https://advrider.com/xxx".into());
+
+  website.crawl().await;
   website.scrape().await;
 
   let body = website.get_pages().context("No web page received")?;
