@@ -3,6 +3,7 @@
 
 use std::collections::BTreeMap;
 use std::fs;
+use std::time::Duration;
 
 use llm_chain::model_opt::ModelOpt;
 use llm_chain::{executor, options, parameters, prompt, Parameters};
@@ -77,9 +78,10 @@ async fn main() -> Result<()> {
   let map_prompt = Step::for_prompt_template(prompt!(MAP_PROMPT, "\n{{text}}"));
   let reduce_prompt = Step::for_prompt_template(prompt!(REDUCE_PROMPT, "\n{{text}}"));
   let chain = Chain::new(map_prompt, reduce_prompt);
-  let body = posts.body();
+  let body = posts.body().lines().take(100).collect::<Vec<&str>>().join("\n");
 
   let options = options!(
+    ThrottleDelay: Duration::from_millis(400),
     RepeatPenaltyLastN: 1_usize,
     MaxContextSize: 3048_usize,
     MaxBatchSize: 3000_usize,
