@@ -1,16 +1,14 @@
-use std::ops::Add;
-
-use async_openai::config::OpenAIConfig;
 use spider::configuration::{Configuration, GPTConfigs};
 use reqwest::header::{self, HeaderMap};
-use spider::website::Website;
 use anyhow::{Context, Result};
+use spider::website::Website;
 use spider::tokio;
 
 const URL: &str = "https://advrider.com/f/threads/husqvarna-701-super-moto-and-enduro.1086621";
 const OPENAI_MODEL: &str = "gpt-4-turbo-preview";
 const CRAWL_LIST: [&str; CAPACITY] = [URL];
 const AGENT_NAME: &str = "Lisa Eriksson";
+const ENABLE_WEB_CACHE: bool = true;
 const OPENAI_MAX_TOKEN: u16 = 512;
 const RESPECT_ROBOT: bool = true;
 const REDIRECT_LIMIT: usize = 2;
@@ -93,7 +91,7 @@ async fn webpage(url: &str) -> Result<Website> {
     .with_openai(openai().await.ok())
     .with_headers(header()?)
     .with_config(config())
-    .with_caching(true)
+    .with_caching(ENABLE_WEB_CACHE)
     .build()
     .context("Could not build webpage")
 }
