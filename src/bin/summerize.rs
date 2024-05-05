@@ -14,7 +14,7 @@ use llm_chain::options::{ModelRef, Options};
 use llm_chain::chains::map_reduce::Chain;
 use serde::{Deserialize, Serialize};
 use llm_chain::step::Step;
-use anyhow::Result;
+use anyhow::{bail, Context, Result};
 use log::info;
 
 const REDUCE_PROMPT: &str = include_str!("../../prompts/reduce.md");
@@ -75,7 +75,11 @@ async fn main() -> Result<()> {
   let map_prompt = Step::for_prompt_template(prompt!(MAP_PROMPT, "\n{{text}}"));
   let reduce_prompt = Step::for_prompt_template(prompt!(REDUCE_PROMPT, "\n{{text}}"));
   let chain = Chain::new(map_prompt, reduce_prompt);
-  let body = posts.body().chars().take(MAX_INPUT_SIZE).collect::<String>();
+  let body = posts
+    .body()
+    .chars()
+    .take(MAX_INPUT_SIZE)
+    .collect::<String>();
   let model = ModelRef::from_model_name(MODEL_NAME);
 
   let options = options!(
@@ -85,15 +89,24 @@ async fn main() -> Result<()> {
     // MaxBatchSize: 3000_usize,
     Temperature: 0.01_f32,
     NThreads: 3_usize,
-    Model: model
+    Model: model,
+    Stream: false
   );
 
-
-  let exec = executor!(chatgpt, options);
+  let exec = executor!(chatgpt, options)?;
   let docs = vec![parameters!(body)];
-  let result = chain.run(docs, Parameters::new(), &exec?).await?;
 
-  info!("Result: {}", result);
+  use llm_chain::output::Output::{Immediate, Stream};
 
-  Ok(())
+  let result = chain.run(docs, Parameters::new(), &exec).await;
+  let raw = match result {
+    Ok(Immediate(out)) => out.primary_textual_output().context("NOPE"),
+    Ok(Stream(_)) => bail!("Invalid stream returned"),
+    Err(reason) => bail!("Failed running chain: {}", reason)
+  };
+
+  // Write raw to results.md
+  let output = raw.context("Something failed")?;
+  info!("Writing calculated result to {} @ {} bytes", "results.md", output.len());
+  fs::write("results.md", output).context("Unable to write file")
 }
