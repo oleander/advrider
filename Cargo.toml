@@ -22,6 +22,7 @@ scrub = "0.1.0"
 select = "0.6.0"
 serde = { version = "1.0.198", features = ["derive"] }
 serde_json = "1.0.116"
+spider = { version = "1.93.28", features = ["openai", "smart", "cache", "decentralized_headers", "decentralized", "control"] }
 tiktoken-rs = "0.5.8"
 tokio = { version = "1.37.0", features = ["full"] }
 unicase = "2.7.0"
