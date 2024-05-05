@@ -29,7 +29,7 @@ dependencies = [
  "env_logger",
  "indicatif",
  "lazy_static",
- "llm-chain 0.13.0",
+ "llm-chain",
  "llm-chain-openai",
  "log",
  "rand 0.8.5",
@@ -293,39 +293,20 @@ dependencies = [
 
 [[package]]
 name = "async-openai"
-version = "0.10.3"
+version = "0.16.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5d5e93aca1b2f0ca772c76cadd43e965809df87ef98e25e47244c7f006c85d2"
+checksum = "f49befca6fce02518292854f986151b70bb1c0a32e402c5efe52c3aa75f2e183"
 dependencies = [
+ "async-convert",
  "backoff",
  "base64 0.21.7",
+ "bytes",
  "derive_builder 0.12.0",
  "futures",
  "rand 0.8.5",
  "reqwest 0.11.27",
  "reqwest-eventsource 0.4.0",
- "serde",
- "serde_json",
- "thiserror",
- "tokio",
- "tokio-stream",
- "tokio-util",
- "tracing",
-]
-
-[[package]]
-name = "async-openai"
-version = "0.11.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6fb81e98a73c697e72e6bd0b92714b00fc0ffa8871beedeb8c14ab4d1e27ff79"
-dependencies = [
- "backoff",
- "base64 0.21.7",
- "derive_builder 0.12.0",
- "futures",
- "rand 0.8.5",
- "reqwest 0.11.27",
- "reqwest-eventsource 0.4.0",
+ "secrecy",
  "serde",
  "serde_json",
  "thiserror",
@@ -1296,16 +1277,6 @@ dependencies = [
 
 [[package]]
 name = "fancy-regex"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b95f7c0680e4142284cf8b22c14a476e87d61b004a3a0861872b32ef7ead40a2"
-dependencies = [
- "bit-set",
- "regex",
-]
-
-[[package]]
-name = "fancy-regex"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7493d4c459da9f84325ad297371a6b2b8a162800873a22e3b6b6512e61d18c05"
@@ -2195,32 +2166,6 @@ checksum = "01cda141df6706de531b6c46c3a33ecca755538219bd484262fa09410c13539c"
 
 [[package]]
 name = "llm-chain"
-version = "0.12.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "441d783a2388f22afa1cc74e2299dfc91b48683f49e9ccc5fd43e8075f0814cb"
-dependencies = [
- "anyhow",
- "async-trait",
- "derive_builder 0.12.0",
- "futures",
- "lazy_static",
- "markdown",
- "paste",
- "reqwest 0.11.27",
- "serde",
- "serde_json",
- "serde_yaml",
- "strum 0.25.0",
- "strum_macros 0.24.3",
- "tera",
- "thiserror",
- "tokio",
- "tokio-stream",
- "uuid",
-]
-
-[[package]]
-name = "llm-chain"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0921c2c333c11d9806c650237e9a345562767afec314035dabc073fbc14e60f4"
@@ -2247,19 +2192,19 @@ dependencies = [
 
 [[package]]
 name = "llm-chain-openai"
-version = "0.12.3"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5de076c89d981fe15a6645f3ea4cceb341960f44e0adb0449a69f787f0367cc8"
+checksum = "738bdfe657582e6fcaa976b5d32626337d6039526219c5cd0ba0bbc0744ab9b2"
 dependencies = [
- "async-openai 0.10.3",
+ "async-openai 0.16.3",
  "async-trait",
  "futures",
- "llm-chain 0.12.3",
+ "llm-chain",
  "serde",
- "strum 0.25.0",
+ "strum 0.24.1",
  "strum_macros 0.24.3",
  "thiserror",
- "tiktoken-rs 0.4.5",
+ "tiktoken-rs",
  "tokio",
 ]
 
@@ -3831,7 +3776,7 @@ dependencies = [
  "string_concat",
  "strum 0.26.2",
  "tendril",
- "tiktoken-rs 0.5.8",
+ "tiktoken-rs",
  "tokio",
  "tokio-stream",
  "ua_generator",
@@ -3910,6 +3855,12 @@ name = "strsim"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
+
+[[package]]
+name = "strum"
+version = "0.24.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "063e6045c0e62079840579a7e47a355ae92f60eb74daaf156fb1e84ba164e63f"
 
 [[package]]
 name = "strum"
@@ -4099,29 +4050,13 @@ dependencies = [
 
 [[package]]
 name = "tiktoken-rs"
-version = "0.4.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "52aacc1cff93ba9d5f198c62c49c77fa0355025c729eed3326beaf7f33bc8614"
-dependencies = [
- "anyhow",
- "async-openai 0.11.1",
- "base64 0.21.7",
- "bstr",
- "fancy-regex 0.11.0",
- "lazy_static",
- "parking_lot",
- "rustc-hash",
-]
-
-[[package]]
-name = "tiktoken-rs"
 version = "0.5.8"
 source = "git+https://github.com/zurawiki/tiktoken-rs.git#eb9c1ded10ec863ce84a093d8570fb9b89cadc71"
 dependencies = [
  "anyhow",
  "base64 0.21.7",
  "bstr",
- "fancy-regex 0.12.0",
+ "fancy-regex",
  "lazy_static",
  "parking_lot",
  "rustc-hash",
