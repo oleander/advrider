@@ -4,14 +4,14 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-spider = { version = "1.93.28", features = ["cache", "cache_mem", "cache_openai", "openai", "cache", "glob", "decentralized", "ua_generator", "socks"] }
+spider = { version = "1.93.28", features = ["cache", "cache_mem", "cache_openai", "openai", "cache", "glob", "decentralized", "ua_generator", "socks", "decentralized_headers"] }
 # llm-chain-openai = { path = "/Users/linus/Code/llm-chain/crates/llm-chain-openai" }
 # llm-chain = { path = "/Users/linus/Code/llm-chain/crates/llm-chain" }
 
 llm-chain-openai = "0.13.0"
 llm-chain = "*"
 
-reqwest = { version = "0.12.4", features = ["blocking", "json"] }
+reqwest = { version = "0.12.4", features = ["json"] }
 serde = { version = "1.0.198", features = ["derive"] }
 tokio = { version = "1.37.0", features = ["rt-multi-thread"] }
 async-openai = "0.20.0"

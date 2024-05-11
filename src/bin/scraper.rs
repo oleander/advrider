@@ -24,7 +24,7 @@ lazy_static::lazy_static! {
 
 async fn run_health_check_server() {
   let health_route = warp::path!("health").map(|| warp::reply::json(&"OK"));
-  warp::serve(health_route).run(([127, 0, 0, 1], 3030)).await;
+  warp::serve(health_route).run(([127, 0, 0, 1], 4040)).await;
 }
 
 async fn perform_main_tasks() -> Result<()> {
@@ -73,7 +73,7 @@ async fn fetch(url: &str) -> Result<String> {
   info!("Building request object to fetch website ...");
   let mut website = Website::new(url)
     .with_wait_for_idle_network(network_config)
-    .with_proxies(proxies.into())
+    // .with_proxies(proxies.into())
     .with_openai(openai_config)
     .with_headers(header()?)
     .with_redirect_limit(2)

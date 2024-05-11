@@ -16,6 +16,6 @@ RUN cargo build
 
 EXPOSE 3030
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:3030/health || exit 1
+    CMD curl -f http://localhost:4040/health || exit 1
 
 CMD ["cargo", "run", "--bin", "scraper"]
