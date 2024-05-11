@@ -1,6 +1,7 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 
+use reqwest::Url;
 use spider::configuration::Configuration;
 use anyhow::{bail, Context, Result};
 use spider::website::Website;
@@ -73,6 +74,9 @@ struct Opt {
   #[structopt(long, help = "Print only URLs, do not save")]
   only_print_urls: bool,
   // set output dir
+  #[structopt(long, help = "Set output directory", default_value = "data/pages")]
+  output_dir: String,
+
   // limit number of pages
   #[structopt(long, help = "Limit number of pages", default_value = "50")]
   page_limit:      usize
@@ -102,11 +106,6 @@ async fn main() -> Result<()> {
     _ => ()
   }
 
-  // let proxy0 = "socks5://127.0.0.1:9050";
-  // let proxy1 = "socks5://127.0.0.1:8050";
-  // let proxy2 = "socks5://127.0.0.1:7050";
-
-  // let proxies = vec![proxy0.to_string(), proxy1.to_string(), proxy2.to_string()].into();
   let proxies = opt.proxies.into();
   let rotate_proxy_every = opt.rotate_proxy_every;
 
@@ -122,6 +121,8 @@ async fn main() -> Result<()> {
   let mut website = Website::new(&url);
   let website = website.with_config(config.clone()).with_caching(opt.cache);
   let mut channel = website.subscribe(rotate_proxy_every).unwrap();
+  let mut g = website.subscribe_guard().unwrap();
+  let q = website.queue(100).unwrap();
 
   if opt.only_print_urls {
     log::warn!("Will only print URLs, not save to disk");
@@ -139,6 +140,10 @@ async fn main() -> Result<()> {
       let url = res.get_url();
       let page = url.split("/").last().unwrap().split("-").last().unwrap();
       let output_path = format!("data/pages/{}.md", page);
+
+
+      let mut parsed_url = Url::parse(url).expect("Failed to parse URL");
+
 
       log::info!("[{}] URL: {}", count, url);
 
@@ -199,11 +204,4 @@ async fn refresh_all_proxies(controllers: Vec<String>) {
     .into_iter()
     .map(|controller| tor::refresh(controller.clone()));
   join_all(futures).await;
-  // log::info!("Rotating ALL Tor proxies");
-  // tokio::select! {
-  //   _ = tor::refresh("127.0.0.1:9051") => (),
-  //   _ = tor::refresh("127.0.0.1:8051") => (),
-  //   _ = tor::refresh("127.0.0.1:7051") => ()
-  // }
-  // log::info!("Successfully rotated ALL Tor proxies");
 }
