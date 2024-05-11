@@ -1,8 +1,7 @@
-// tor_control.rs
-use anyhow::Result;
-use tokio::net::TcpStream;
 use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::net::TcpStream;
 use thiserror::Error;
+use anyhow::Result;
 
 #[derive(Error, Debug)]
 pub enum ControlError {
@@ -51,7 +50,7 @@ pub struct Command {
 
 impl Command {
   pub async fn new(address: &str, password: &str) -> Result<Self> {
-    let mut control = Control::new(address).await?;
+    let control = Control::new(address).await?;
     let mut cmd = Self {
       control,
       password: password.to_string()
@@ -86,9 +85,34 @@ impl Command {
   }
 }
 
+mod ip {
+  use reqwest::header::{ACCEPT, USER_AGENT};
+  use reqwest::{Client, Error, Proxy};
+
+  pub async fn get() -> Result<String, Error> {
+    let proxy = Proxy::all("socks5://127.0.0.1:9050")?;
+    let client = Client::builder()
+      .proxy(proxy)
+      .danger_accept_invalid_certs(true)
+      .build()?;
+
+    let res = client
+      .get("https://ifconfig.io")
+      .header(USER_AGENT, "curl/7.64.1")
+      .send()
+      .await?;
+
+    let body = res.text().await?;
+    Ok(body.trim().to_string())
+  }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
   env_logger::init();
+
+  let ip = ip::get().await?;
+  log::info!("Your IP address is: {}", ip);
 
   log::info!("Starting Tor control ...");
   let mut cmd = Command::new("127.0.0.1:9051", "").await?;
@@ -105,5 +129,7 @@ async fn main() -> Result<()> {
   log::info!("Quitting Tor network ...");
   cmd.quit().await?;
 
+  let ip = ip::get().await?;
+  log::info!("Your new IP address is: {}", ip);
   Ok(())
 }

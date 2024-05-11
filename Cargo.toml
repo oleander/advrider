@@ -11,7 +11,7 @@ spider = { version = "1.93.28", features = ["glob", "budget", "socks", "cache", 
 llm-chain-openai = "0.13.0"
 llm-chain = "*"
 
-reqwest = { version = "0.12.4", features = ["json"] }
+reqwest = { version = "0.12.4", features = ["json", "socks"] }
 serde = { version = "1.0.198", features = ["derive"] }
 tokio = { version = "1.37.0", features = ["rt-multi-thread", "full"] }
 async-openai = "0.21.0"
