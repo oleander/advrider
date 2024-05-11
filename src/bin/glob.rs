@@ -44,7 +44,7 @@ mod tor {
   }
 }
 
-#[tokio::main]
+#[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<()> {
   env_logger::init();
 
