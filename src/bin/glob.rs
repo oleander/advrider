@@ -43,7 +43,7 @@ mod tor {
     }
 
     // Ensure the connection is closed
-    sleep(Duration::from_millis(200)).await;
+    // sleep(Duration::from_millis(100)).await;
 
     Ok(())
   }
@@ -55,7 +55,7 @@ async fn main() -> Result<()> {
 
   let url = "https://advrider.com/f/threads/thinwater-escapades.1502022/page-[1-300]";
   let proxy = "socks5://127.0.0.1:9050";
-  let rotate_proxy_every = 3;
+  let rotate_proxy_every = 10;
 
   let mut config = Configuration::new();
   let counter = AtomicUsize::new(0);
