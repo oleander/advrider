@@ -16,5 +16,8 @@ proxy:
 scraper:
   docker compose up scraper --remove-orphans
 
-run:
+run: build
   docker compose up --remove-orphans
+
+build:
+  docker compose build

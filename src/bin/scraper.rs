@@ -16,14 +16,18 @@ const OPENAI_MAX_TOKEN: u16 = 512;
 const RESPECT_ROBOT: bool = true;
 const REDIRECT_LIMIT: usize = 2;
 
+use warp::Filter;
+
 lazy_static::lazy_static! {
   static ref PROXY_URL: String = env!("PROXY_URL").into();
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
-  env_logger::init();
+async fn run_health_check_server() {
+  let health_route = warp::path!("health").map(|| warp::reply::json(&"OK"));
+  warp::serve(health_route).run(([127, 0, 0, 1], 3030)).await;
+}
 
+async fn perform_main_tasks() -> Result<()> {
   info!("Fetching URL, hold on...");
   let body = fetch(URL).await?;
 
@@ -31,6 +35,18 @@ async fn main() -> Result<()> {
   match tokio::fs::write("data/dump.txt", body).await {
     Ok(_) => info!("Scraped output saved to data/dump.txt"),
     Err(e) => error!("Failed to save scraped output: {}", e)
+  }
+
+  Ok(())
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+  env_logger::init();
+
+  tokio::select! {
+    _ = run_health_check_server() => {},
+    _ = perform_main_tasks() => {},
   }
 
   Ok(())
@@ -46,7 +62,7 @@ async fn fetch(url: &str) -> Result<String> {
     .build();
 
   let network_config = Some(WaitForIdleNetwork::new(Some(Duration::from_micros(100))));
-  let system_path = "/Users/linus/.config/fabric/patterns/summarize/system.md";
+  let system_path = "prompts/summarize.md";
   let system_prompt = tokio::fs::read_to_string(system_path).await?;
 
   let openai_config =

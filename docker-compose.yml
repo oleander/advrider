@@ -1,10 +1,12 @@
 services:
   proxy:
+    platform: linux/amd64
     image: osminogin/tor-simple
     ports:
       - 0.0.0.0:9050:9050
 
   spider:
+    platform: linux/amd64
     depends_on:
       - proxy
     build:
@@ -19,6 +21,7 @@ services:
     restart: on-failure
 
   scraper:
+    platform: linux/amd64
     depends_on:
       - proxy
       - spider
