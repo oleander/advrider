@@ -5,8 +5,10 @@ ENV SPIDER_WORKER_SCRAPER_PORT 3031
 
 RUN cargo install spider_worker
 
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:3030/health || exit 1
+EXPOSE 3030
+EXPOSE 3031
 
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:3030 || exit 1
 
 CMD spider_worker

@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::fs;
 
 use rand::Rng;
-use reqwest::blocking::Client;
+use reqwest::Client;
 use serde_json::{json, Value};
 use indicatif::ProgressBar;
 use anyhow::Result;
@@ -19,7 +19,8 @@ OUTPUT:
 * If POST and QUOTE returns nothing, return KEEP THESE ACCESSORIES
 ";
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
   env_logger::init();
 
   let posts = fs::read_to_string("posts.json").expect("Failed to read posts.json");
@@ -97,7 +98,8 @@ fn main() -> Result<()> {
     let response = client
       .post("http://localhost:11434/api/generate")
       .json(&request)
-      .send();
+      .send()
+      .await;
 
     let Ok(response) = response else {
       progress_bar.println("Failed to parse response");
@@ -105,7 +107,7 @@ fn main() -> Result<()> {
       continue;
     };
 
-    let response = response.json::<Value>()?;
+    let response = response.json::<Value>().await.unwrap();
     let response = response["response"].as_str().unwrap().to_string();
     str_context = Some(response.clone());
 
