@@ -123,20 +123,18 @@ impl Command {
 
   pub async fn send(&mut self, command: &str, expected: &str) -> Result<()> {
     log::debug!("Sending command '{}' and expecting '{}'", command, expected);
-    let mut control = self.control.lock().await;
-    control.send(command, expected).await
+    self.control.lock().await.send(command, expected).await
   }
 }
 
 impl Drop for Command {
   fn drop(&mut self) {
-    log::info!("Dropping Tor control ...");
-    let mut cloned = self.clone();
-
-    tokio::spawn(async move {
-      cloned.quit().await.expect("Failed to quit Tor control");
-    });
-
-    log::info!("Tor control dropped!");
+      if Arc::strong_count(&self.control) == 1 {
+          let control = self.control.clone();
+          tokio::spawn(async move {
+              let mut control = control.lock().await;
+              control.quit().await.expect("Failed to quit Tor control");
+          });
+      }
   }
 }
