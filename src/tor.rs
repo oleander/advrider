@@ -7,7 +7,7 @@ use anyhow::Result;
 pub enum ControlError {
   #[error("IO error: {0}")]
   Io(#[from] io::Error),
-  #[error("Expected {0} from {1} but got {2}")]
+  #[error("Expected '{0}' from '{1}' but got '{2}'")]
   CommandError(String, String, String)
 }
 
@@ -27,19 +27,20 @@ impl Control {
     self.stream.write_all(command.as_bytes()).await?;
     self.stream.write_all(b"\n").await?;
     self.stream.flush().await?;
-    self.response(expected).await
+    let actual = self.response().await?;
+
+    if actual == expected {
+      return Ok(());
+    }
+
+    Err(ControlError::CommandError(expected.to_string(), command.to_string(), actual).into())
   }
 
-  async fn response(&mut self, expected: &str) -> Result<()> {
+  async fn response(&mut self) -> Result<String> {
     let mut reader = BufReader::new(&mut self.stream);
     let mut response = String::new();
     reader.read_line(&mut response).await?;
-    let trimmed = response.trim().to_string();
-    if trimmed != expected {
-      Err(ControlError::CommandError("".to_string(), expected.to_string(), trimmed).into())
-    } else {
-      Ok(())
-    }
+    Ok(response.trim().to_string())
   }
 }
 
