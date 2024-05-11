@@ -1,11 +1,11 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 
-use reqwest::Url;
 use spider::configuration::Configuration;
 use anyhow::{bail, Context, Result};
 use spider::website::Website;
 use tokio::io::AsyncWriteExt;
+use spider::url::Url;
 use html2text::from_read;
 use spider::tokio;
 
@@ -49,7 +49,7 @@ use structopt::StructOpt;
 #[derive(StructOpt, Debug)]
 #[structopt(name = "scraper")]
 struct Opt {
-  #[structopt(short, long, help = "https://advrider.com/f/threads/the-toolkit-thread.262998/page-[1-480]")]
+  #[structopt(short, long, help = "https://advrider.com/f/threads/the-toolkit-thread.262998/page-[1-2]")]
   url: String,
 
   #[structopt(long = "proxies", help = "socks5://127.0.0.1:9050")]
@@ -75,14 +75,14 @@ struct Opt {
   only_print_urls: bool,
   // set output dir
   #[structopt(long, help = "Set output directory", default_value = "data/pages")]
-  output_dir: String,
+  output_dir:      String,
 
   // limit number of pages
   #[structopt(long, help = "Limit number of pages", default_value = "50")]
-  page_limit:      usize
+  page_limit: usize
 }
 
-#[tokio::main(flavor = "multi_thread")]
+#[tokio::main(flavor = "multi_thread", worker_threads = 10)]
 async fn main() -> Result<()> {
   let opt = Opt::from_args();
 
@@ -116,13 +116,13 @@ async fn main() -> Result<()> {
   let config = config
     .with_depth(1)
     .with_proxies(proxies)
-    .with_caching(true);
+    .with_caching(opt.cache);
 
   let mut website = Website::new(&url);
   let website = website.with_config(config.clone()).with_caching(opt.cache);
-  let mut channel = website.subscribe(rotate_proxy_every).unwrap();
-  let mut g = website.subscribe_guard().unwrap();
-  let q = website.queue(100).unwrap();
+  let mut channel = website.subscribe(16).unwrap();
+  let mut guard = website.subscribe_guard().unwrap();
+  let queue = website.queue(opt.proxies.len()).unwrap();
 
   if opt.only_print_urls {
     log::warn!("Will only print URLs, not save to disk");
@@ -141,9 +141,12 @@ async fn main() -> Result<()> {
       let page = url.split("/").last().unwrap().split("-").last().unwrap();
       let output_path = format!("data/pages/{}.md", page);
 
+      let mut parsed_url = Url::parse(url).unwrap();
+      let size = queue.send(parsed_url.into()).unwrap();
 
-      let mut parsed_url = Url::parse(url).expect("Failed to parse URL");
+      log::info!("Queue size: {}", size);
 
+      guard.inc();
 
       log::info!("[{}] URL: {}", count, url);
 
@@ -191,6 +194,8 @@ async fn main() -> Result<()> {
 
   log::info!("Scraping website, hold on...");
   website.scrape().await;
+
+  log::info!("URL: {}", website.get_links().len());
 
   log::info!("Time passed: {:?}", start.elapsed());
 
