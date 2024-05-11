@@ -5,8 +5,6 @@ use std::vec;
 use advrider::ip;
 use anyhow::{Context, Result};
 use html2text::from_read;
-use reqwest::header::HeaderMap;
-use reqwest::header;
 use spider::configuration::Configuration;
 use spider::tokio;
 use spider::website::Website;
@@ -52,7 +50,7 @@ async fn main() -> Result<()> {
 
   let url = "https://advrider.com/f/threads/thinwater-escapades.1502022/page-[1-40]";
   let proxy = "socks5://127.0.0.1:9050";
-  let rotate_proxy_every = 10;
+  let rotate_proxy_every = 5;
 
   let counter = AtomicUsize::new(0);
   let start = Instant::now();
@@ -60,13 +58,16 @@ async fn main() -> Result<()> {
 
   let config = config
     .with_depth(1)
-    .with_headers(header()?)
     .with_proxies(vec![proxy.to_string()].into())
     .with_caching(true);
 
   let mut website = Website::new(url);
   let website = website.with_config(config.clone()).with_caching(true);
   let mut channel = website.subscribe(rotate_proxy_every).unwrap();
+
+  log::info!("Rotating Tor proxy");
+  tor::refresh().await?;
+  log::info!("Resetting IP address to {}", ip::get().await.unwrap());
 
   tokio::spawn(async move {
     while let Ok(res) = channel.recv().await {
@@ -77,10 +78,10 @@ async fn main() -> Result<()> {
       let markdown_bytes = markdown.as_bytes();
       let url = res.get_url();
       let page = url.split("/").last().unwrap().split("-").last().unwrap();
+      let output_path = format!("data/pages/{}.md", page);
 
       log::info!("[{}] Received {} bytes from page #{}", count, markdown_bytes.len(), page);
 
-      let output_path = format!("data/pages/{}.md", page);
       tokio::fs::OpenOptions::new()
         .write(true)
         .create(true)
@@ -95,7 +96,7 @@ async fn main() -> Result<()> {
 
       log::info!("[{}] Wrote {} bytes to {}", count, markdown_bytes.len(), output_path);
 
-      if count % rotate_proxy_every == 0 {
+      if count % rotate_proxy_every == 0 && count > 0 {
         log::warn!("[{}] Resetting Tor proxy connection", count);
 
         match tor::refresh().await {
@@ -114,12 +115,4 @@ async fn main() -> Result<()> {
   log::info!("Time passed: {:?}", duration);
 
   Ok(())
-}
-
-fn header() -> Result<Option<HeaderMap>> {
-  let mut headers = HeaderMap::new();
-  headers.insert(header::ACCEPT, "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7".parse().unwrap());
-  headers.insert(header::ACCEPT_LANGUAGE, "en-GB,en-US;q=0.9,en;q=0.8,sv;q=0.7".parse().unwrap());
-  headers.insert(header::COOKIE, "_gcl_au=1.1.82089729.1713720688; _gid=GA1.2.1985556420.1713720688; xf_logged_in=1; xf_session=867c856b44b55341ea9c2e9b34fe6808; _ga_BCFR910NDY=GS1.1.1713720688.1.1.1713722217.0.0.0; _ga=GA1.2.469143051.1713720688".parse().unwrap());
-  Ok(Some(headers))
 }
