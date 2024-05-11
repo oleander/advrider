@@ -1,5 +1,5 @@
-use reqwest::header::{ACCEPT, USER_AGENT};
-use reqwest::{Client, Error, Proxy};
+use reqwest::header::USER_AGENT;
+use reqwest::{Client, Proxy};
 use anyhow::Result;
 
 pub async fn get() -> Result<String> {

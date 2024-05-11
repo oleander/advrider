@@ -80,7 +80,15 @@ impl Command {
     Ok(())
   }
 
+  pub async fn refresh(&mut self) -> Result<()> {
+    self.authenticate().await?;
+    self.newnym().await?;
+    self.liveness().await?;
+    self.quit().await
+  }
+
   pub async fn send(&mut self, command: &str) -> Result<()> {
+    log::debug!("Sending command '{}'", command);
     self.control.send(command).await.map(|_| ())
   }
 }
