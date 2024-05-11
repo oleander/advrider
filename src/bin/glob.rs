@@ -53,24 +53,29 @@ mod tor {
 async fn main() -> Result<()> {
   env_logger::init();
 
-  let mut b = Configuration::new();
-  let config = b
+  let proxy = "socks5://127.0.0.1:9050";
+  let url = "https://advrider.com/f/threads/thinwater-escapades.1502022/page-[1-40]";
+  let dump_path = "data/dump.txt";
+  let rotate_proxy_every = 10;
+  let counter = AtomicUsize::new(0);
+  let start = Instant::now();
+  let mut config = Configuration::new();
+
+  let config = config
     .with_depth(1)
     .with_headers(header()?)
-    .with_proxies(vec!["socks5://127.0.0.1:9050".to_string()].into())
+    .with_proxies(vec![proxy.to_string()].into())
     .with_caching(true);
 
-  let mut website: Website = Website::new("https://advrider.com/f/threads/thinwater-escapades.1502022/page-[1-40]");
-
+  let mut website = Website::new(url);
   let website = website.with_config(config.clone()).with_caching(true);
-  let mut rx2 = website.subscribe(16).unwrap();
-  let counter = AtomicUsize::new(0);
+  let mut channel = website.subscribe(16).unwrap();
 
-  log::info!("Reset data/dump.txt");
+  log::info!("Reset {}", dump_path);
   tokio::fs::OpenOptions::new()
     .write(true)
     .create(true)
-    .open("data/dump.txt")
+    .open(dump_path)
     .await
     .context("Failed to open file")
     .unwrap()
@@ -80,7 +85,7 @@ async fn main() -> Result<()> {
     .unwrap();
 
   tokio::spawn(async move {
-    while let Ok(res) = rx2.recv().await {
+    while let Ok(res) = channel.recv().await {
       let count = counter.fetch_add(1, Ordering::SeqCst);
       let html = res.get_html();
       let html_bytes = html.as_bytes();
@@ -93,7 +98,7 @@ async fn main() -> Result<()> {
       tokio::fs::OpenOptions::new()
         .append(true)
         .create(true)
-        .open("data/dump.txt")
+        .open(dump_path)
         .await
         .context("Failed to open file")
         .unwrap()
@@ -102,12 +107,12 @@ async fn main() -> Result<()> {
         .context("Failed to write to file")
         .unwrap();
 
-      if count % 10 == 0 {
+      if count % rotate_proxy_every == 0 {
         log::warn!("[{}] Resetting Tor proxy connection", count);
 
         match tor::refresh().await {
           Ok(_) => log::info!("[{}] Successfully refreshed Tor", count),
-          Err(e) => log::error!("[{}] Failed to refresh Tor: {}", count, e),
+          Err(e) => log::error!("[{}] Failed to refresh Tor: {}", count, e)
         }
 
         log::info!("[{}] Resetting IP address to {}", count, ip::get().await.unwrap());
@@ -115,30 +120,10 @@ async fn main() -> Result<()> {
     }
   });
 
-  let start = Instant::now();
-
   website.scrape().await;
-
   let duration = start.elapsed();
-  let links = website.get_links();
-
-  for link in links.iter() {
-    log::info!("{}", link.as_ref());
-  }
-
-  let body = website
-    .get_pages()
-    .context("No web pages received")?
-    .iter()
-    .map(|page| from_read(page.get_html().as_bytes(), usize::MAX))
-    .collect::<Vec<String>>()
-    .join("\n");
-
-  log::info!("Writing to file data/dump.txt");
-  std::fs::write("data/dump.txt", body).context("Failed to write to file")?;
 
   log::info!("Time passed: {:?}", duration);
-  log::info!("Total pages: {:?}", links.len());
 
   Ok(())
 }
