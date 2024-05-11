@@ -4,6 +4,7 @@ use std::time::Instant;
 use async_std::path::PathBuf;
 use env_logger::Env;
 use spider::configuration::Configuration;
+use futures::future::join_all;
 use anyhow::{bail, Context, Result};
 use spider::website::Website;
 use tokio::io::AsyncWriteExt;
@@ -134,7 +135,7 @@ async fn main() -> Result<()> {
     .with_proxies(proxies)
     .with_caching(opt.cache)
     .with_respect_robots_txt(true)
-    .with_delay(100);
+    .with_delay(50);
 
   let mut website = Website::new(&url);
   let website = website.with_config(config.clone()).with_caching(opt.cache);
@@ -216,8 +217,6 @@ async fn main() -> Result<()> {
 
   Ok(())
 }
-
-use futures::future::join_all;
 
 async fn refresh_all_proxies(controllers: Vec<String>) {
   let futures = controllers
