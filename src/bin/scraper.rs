@@ -40,7 +40,7 @@ async fn perform_main_tasks() -> Result<()> {
   Ok(())
 }
 
-#[tokio::main]
+#[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<()> {
   env_logger::init();
 
