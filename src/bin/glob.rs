@@ -1,6 +1,5 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
-use std::vec;
 
 use spider::configuration::Configuration;
 use anyhow::{bail, Context, Result};
@@ -75,8 +74,8 @@ struct Opt {
 async fn main() -> Result<()> {
   let opt = Opt::from_args();
 
-  if (opt.verbose) {
-    env!("RUST_LOG", "info");
+  if opt.verbose {
+    env!("RUST_LOG", "debug");
   }
 
   env_logger::init();
