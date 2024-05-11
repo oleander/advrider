@@ -1,7 +1,8 @@
 use reqwest::header::{ACCEPT, USER_AGENT};
 use reqwest::{Client, Error, Proxy};
+use anyhow::Result;
 
-pub async fn get() -> Result<String, Error> {
+pub async fn get() -> Result<String> {
   let proxy = Proxy::all("socks5://127.0.0.1:9050")?;
   let client = Client::builder()
     .proxy(proxy)
