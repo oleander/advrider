@@ -11,7 +11,8 @@ spider:
   docker compose up spider --remove-orphans
 
 proxy:
-  docker compose up proxy --remove-orphans
+  docker compose up -d proxy0 --remove-orphans
+  docker compose up -d proxy1 --remove-orphans
 
 scraper:
   docker compose up scraper --remove-orphans

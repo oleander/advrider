@@ -22,9 +22,11 @@ mod tor {
     stream.flush().await.context("Failed to flush")
   }
 
-  pub async fn refresh() -> Result<()> {
+  pub async fn refresh(control_url: &str) -> Result<()> {
     let status = vec!["250 OK", "250 OK", "250 closing connection"];
-    let mut stream = TcpStream::connect(CONTROL_URL).await?;
+    let mut stream = TcpStream::connect(control_url)
+      .await
+      .context("Failed to connect to Tor control port")?;
 
     send("AUTHENTICATE \"\"", &mut stream).await?;
     send("SIGNAL NEWNYM", &mut stream).await?;
@@ -48,7 +50,8 @@ async fn main() -> Result<()> {
   env_logger::init();
 
   let url = "https://advrider.com/f/threads/sena-s20-experience.993790/page-[1-100]";
-  let proxy = "socks5://127.0.0.1:9050";
+  let proxy0 = "socks5://127.0.0.1:9050";
+  let proxy1 = "socks5://127.0.0.1:8050";
   let rotate_proxy_every = 10;
 
   let mut config = Configuration::new();
@@ -57,15 +60,14 @@ async fn main() -> Result<()> {
 
   let config = config
     .with_depth(1)
-    .with_proxies(vec![proxy.to_string()].into())
+    .with_proxies(vec![proxy0.to_string(), proxy1.to_string()].into())
     .with_caching(true);
 
   let mut website = Website::new(url);
   let website = website.with_config(config.clone()).with_caching(true);
   let mut channel = website.subscribe(rotate_proxy_every).unwrap();
 
-  log::info!("Rotating Tor proxy");
-  tor::refresh().await?;
+  refresh_all_proxies().await;
 
   tokio::spawn(async move {
     while let Ok(res) = channel.recv().await {
@@ -83,12 +85,7 @@ async fn main() -> Result<()> {
       if markdown_bytes.len() == 0 {
         log::warn!("[{}] Skipping empty page #{}", count, page);
         log::warn!("[{}] Will rotate Tor proxy", count);
-
-        match tor::refresh().await {
-          Ok(_) => log::info!("[{}] Successfully refreshed Tor", count),
-          Err(e) => log::error!("[{}] Failed to refresh Tor: {}", count, e)
-        }
-
+        refresh_all_proxies().await;
         continue;
       }
 
@@ -115,10 +112,7 @@ async fn main() -> Result<()> {
       } else if count % rotate_proxy_every == 0 && count > 0 {
         log::warn!("[{}] Resetting Tor proxy connection", count);
 
-        match tor::refresh().await {
-          Ok(_) => log::info!("[{}] Successfully refreshed Tor", count),
-          Err(e) => log::error!("[{}] Failed to refresh Tor: {}", count, e)
-        }
+        refresh_all_proxies().await;
       }
     }
   });
@@ -129,4 +123,13 @@ async fn main() -> Result<()> {
   log::info!("Time passed: {:?}", start.elapsed());
 
   Ok(())
+}
+
+async fn refresh_all_proxies() {
+  log::info!("Rotating ALL Tor proxies");
+  tokio::select! {
+    _ = tor::refresh("127.0.0.1:9051") => (),
+    _ = tor::refresh("127.0.0.1:8051") => ()
+  }
+  log::info!("Successfully rotated ALL Tor proxies");
 }
