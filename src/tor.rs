@@ -7,8 +7,8 @@ use anyhow::Result;
 pub enum ControlError {
   #[error("IO error: {0}")]
   Io(#[from] io::Error),
-  #[error("Command failed with response: {0}")]
-  CommandError(String)
+  #[error("Expected {0} from {1} but got {2}")]
+  CommandError(String, String, String)
 }
 
 pub struct Control {
@@ -23,22 +23,22 @@ impl Control {
     })
   }
 
-  pub async fn send(&mut self, command: &str) -> Result<String> {
+  pub async fn send(&mut self, command: &str, expected: &str) -> Result<()> {
     self.stream.write_all(command.as_bytes()).await?;
     self.stream.write_all(b"\n").await?;
     self.stream.flush().await?;
-    self.response().await
+    self.response(expected).await
   }
 
-  async fn response(&mut self) -> Result<String> {
+  async fn response(&mut self, expected: &str) -> Result<()> {
     let mut reader = BufReader::new(&mut self.stream);
     let mut response = String::new();
     reader.read_line(&mut response).await?;
     let trimmed = response.trim().to_string();
-    if !trimmed.starts_with("250") {
-      Err(ControlError::CommandError(trimmed).into())
+    if trimmed != expected {
+      Err(ControlError::CommandError("".to_string(), expected.to_string(), trimmed).into())
     } else {
-      Ok(trimmed)
+      Ok(())
     }
   }
 }
@@ -61,23 +61,26 @@ impl Command {
 
   pub async fn authenticate(&mut self) -> Result<()> {
     let command = format!("AUTHENTICATE \"{}\"", self.password);
-    self.send(&command).await?;
-    Ok(())
+    self.send(&command, "250 OK").await
   }
 
   pub async fn quit(&mut self) -> Result<()> {
-    self.send("QUIT").await?;
-    Ok(())
+    self.send("QUIT", "250 closing connection").await
   }
 
   pub async fn newnym(&mut self) -> Result<()> {
-    self.send("SIGNAL NEWNYM").await?;
-    Ok(())
+    self.send("SIGNAL NEWNYM", "XX").await
   }
 
   pub async fn liveness(&mut self) -> Result<()> {
-    self.send("GETINFO network-liveness").await?;
-    Ok(())
+    self
+      .send("GETINFO network-liveness", "250-network-liveness=up")
+      .await
+  }
+
+  pub async fn wait_for_ready(&mut self) -> Result<()> {
+    self.liveness().await?;
+    self.quit().await
   }
 
   pub async fn refresh(&mut self) -> Result<()> {
@@ -87,8 +90,8 @@ impl Command {
     self.quit().await
   }
 
-  pub async fn send(&mut self, command: &str) -> Result<()> {
-    log::debug!("Sending command '{}'", command);
-    self.control.send(command).await.map(|_| ())
+  pub async fn send(&mut self, command: &str, expected: &str) -> Result<()> {
+    log::debug!("Sending command '{}' and expecting '{}'", command, expected);
+    self.control.send(command, expected).await
   }
 }

@@ -48,10 +48,14 @@ async fn perform_main_tasks() -> Result<()> {
 async fn main() -> Result<()> {
   env_logger::init();
 
-  // wait for 5 sec
-  tokio::time::sleep(Duration::from_secs(5)).await;
+  info!("Fetching URL, hold on...");
+  let body = fetch(URL).await?;
 
-  perform_main_tasks().await?;
+  info!("Saving output to data/dump.txt");
+  match tokio::fs::write("data/dump.txt", body).await {
+    Ok(_) => info!("Scraped output saved to data/dump.txt"),
+    Err(e) => error!("Failed to save scraped output: {}", e)
+  }
 
   Ok(())
 }
