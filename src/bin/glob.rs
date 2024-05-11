@@ -50,7 +50,7 @@ async fn main() -> Result<()> {
 
   let url = "https://advrider.com/f/threads/thinwater-escapades.1502022/page-[1-300]";
   let proxy = "socks5://127.0.0.1:9050";
-  let rotate_proxy_every = 5;
+  let rotate_proxy_every = 3;
 
   let mut config = Configuration::new();
   let counter = AtomicUsize::new(0);
@@ -79,6 +79,11 @@ async fn main() -> Result<()> {
       let url = res.get_url();
       let page = url.split("/").last().unwrap().split("-").last().unwrap();
       let output_path = format!("data/pages/{}.md", page);
+
+      if markdown_bytes.len() == 0 {
+        log::warn!("[{}] Skipping empty page #{}", count, page);
+        continue;
+      }
 
       log::info!("[{}] Received {} bytes from page #{}", count, markdown_bytes.len(), page);
 
