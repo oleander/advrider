@@ -1,9 +1,12 @@
+use std::sync::Arc;
 use std::time::Duration;
+use core::future::AsyncDrop;
 
 use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use thiserror::Error;
 use anyhow::Result;
+use tokio::sync::Mutex;
 use tokio::time::sleep;
 
 #[derive(Error, Debug)]
@@ -14,23 +17,28 @@ pub enum ControlError {
   CommandError(String, String, String)
 }
 
+#[derive(Debug, Clone)]
 pub struct Control {
-  stream: TcpStream
+  stream: Arc<Mutex<TcpStream>>
 }
 
 impl Control {
   pub async fn new(address: &str) -> Result<Self> {
     let stream = TcpStream::connect(address).await?;
     Ok(Self {
-      stream
+      stream: Arc::new(Mutex::new(stream))
     })
   }
 
   pub async fn send(&mut self, command: &str, expected: &str) -> Result<()> {
-    self.stream.write_all(command.as_bytes()).await?;
-    self.stream.write_all(b"\n").await?;
-    self.stream.flush().await?;
-    let actual = self.response().await?;
+    let mut stream = self.stream.lock().await;
+
+    let mut reader = BufReader::new(&mut *stream);
+    let mut response = String::new();
+
+    reader.read_line(&mut response).await?;
+    log::debug!("Received response: '{}'", response);
+    let actual = response.trim().to_string();
 
     if actual == expected {
       return Ok(());
@@ -38,17 +46,11 @@ impl Control {
 
     Err(ControlError::CommandError(expected.to_string(), command.to_string(), actual).into())
   }
-
-  async fn response(&mut self) -> Result<String> {
-    let mut reader = BufReader::new(&mut self.stream);
-    let mut response = String::new();
-    reader.read_line(&mut response).await?;
-    Ok(response.trim().to_string())
-  }
 }
 
+#[derive(Debug, Clone)]
 pub struct Command {
-  control:  Control,
+  control:  Arc<Mutex<Control>>,
   password: String,
   open:     bool
 }
@@ -57,9 +59,9 @@ impl Command {
   pub async fn new(address: &str, password: &str) -> Result<Self> {
     let control = Control::new(address).await?;
     let mut cmd = Self {
-      control,
+      control:  Arc::new(Mutex::new(control)),
       password: password.to_string(),
-      open: false
+      open:     false
     };
     cmd.wait_for_ready().await?;
     Ok(cmd)
@@ -108,18 +110,33 @@ impl Command {
     }
 
     log::info!("Tor is ready!");
-    self.quit().await
+    // self.quit().await
+    Ok(())
   }
 
   pub async fn refresh(&mut self) -> Result<()> {
     self.authenticate().await?;
     self.newnym().await?;
-    self.liveness().await?;
-    self.quit().await
+    self.wait_for_ready().await
+    // self.quit().await
   }
 
   pub async fn send(&mut self, command: &str, expected: &str) -> Result<()> {
     log::debug!("Sending command '{}' and expecting '{}'", command, expected);
-    self.control.send(command, expected).await
+    let mut control = self.control.lock().await;
+    control.send(command, expected).await
+  }
+}
+
+impl Drop for Command {
+  fn drop(&mut self) {
+    log::info!("Dropping Tor control ...");
+    let mut cloned = self.clone();
+
+    tokio::spawn(async move {
+      cloned.quit().await.expect("Failed to quit Tor control");
+    });
+
+    log::info!("Tor control dropped!");
   }
 }
