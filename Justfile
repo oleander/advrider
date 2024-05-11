@@ -24,3 +24,11 @@ run: build
 build:
   # docker build -f Dockerfile.binstall . -t binstall --build-arg="GITHUB_TOKEN=$GITHUB_TOKEN"
   docker compose build
+
+cli:
+  cargo run --bin glob -- \
+  --proxies socks5://127.0.0.1:9050 socks5://127.0.0.1:8050 socks5://127.0.0.1:7050 \
+  --url https://advrider.com/f/threads/the-toolkit-thread.262998/page-\[1-\10] \
+  --controllers 127.0.0.1:9051 127.0.0.1:8051 127.0.0.1:7051 \
+  --rotate-proxy-every 3 \
+  --verbose

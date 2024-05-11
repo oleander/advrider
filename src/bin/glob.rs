@@ -1,6 +1,7 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 
+use async_std::path::PathBuf;
 use env_logger::Env;
 use spider::configuration::Configuration;
 use anyhow::{bail, Context, Result};
@@ -76,6 +77,8 @@ struct Opt {
   only_print_urls: bool,
 
   // set output dir
+  #[structopt(long, help = "Set output directory", default_value = ".")]
+  output_dir: PathBuf,
 
   // limit number of pages
   #[structopt(long, help = "Limit number of pages", default_value = "50")]
@@ -111,6 +114,12 @@ async fn main() -> Result<()> {
       bail!("Number of proxies and controllers must match ({} vs {})", a, b);
     }
     _ => ()
+  }
+
+  if !opt.output_dir.exists().await {
+    bail!("Output directory does not exist: {:?}", opt.output_dir);
+  } else if !opt.output_dir.is_dir().await {
+    bail!("Output directory is not a directory: {:?}", opt.output_dir);
   }
 
   let proxies = opt.proxies.clone().into();
@@ -149,7 +158,7 @@ async fn main() -> Result<()> {
       let markdown_bytes = markdown.as_bytes();
       let url = res.get_url();
       let page = url.split("/").last().unwrap().split("-").last().unwrap();
-      let output_path = format!("data/pages/{}.md", page);
+
 
       let parsed_url = Url::parse(url).unwrap();
       let _size = queue.send(parsed_url.into()).unwrap();
@@ -169,6 +178,9 @@ async fn main() -> Result<()> {
 
       log::info!("[{}] Received {} bytes from page #{}", count, markdown_bytes.len(), page);
 
+      let output_file = format!("page-{}.md", page);
+      let output_path = opt.output_dir.join(output_file);
+
       tokio::fs::OpenOptions::new()
         .write(true)
         .create(true)
@@ -181,7 +193,7 @@ async fn main() -> Result<()> {
         .context("Failed to write to file")
         .unwrap();
 
-      log::info!("[{}] Wrote {} bytes to {}", count, markdown_bytes.len(), output_path);
+      log::info!("[{}] Wrote {} bytes to {}", count, markdown_bytes.len(), output_path.display());
 
       let end_page = format!("Page {} of {} ", page, page);
       if markdown.contains(&end_page) {
