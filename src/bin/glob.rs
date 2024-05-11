@@ -14,8 +14,6 @@ mod tor {
   use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
   use tokio::net::TcpStream;
 
-  const CONTROL_URL: &str = "127.0.0.1:9051";
-
   async fn send(command: &str, stream: &mut TcpStream) -> Result<()> {
     stream.write_all(command.as_bytes()).await?;
     stream.write_all(b"\r\n").await?;
@@ -52,7 +50,10 @@ async fn main() -> Result<()> {
   let url = "https://advrider.com/f/threads/sena-s20-experience.993790/page-[1-100]";
   let proxy0 = "socks5://127.0.0.1:9050";
   let proxy1 = "socks5://127.0.0.1:8050";
-  let rotate_proxy_every = 10;
+  let proxy2 = "socks5://127.0.0.1:7050";
+
+  let proxies = vec![proxy0.to_string(), proxy1.to_string(), proxy2.to_string()].into();
+  let rotate_proxy_every = 30;
 
   let mut config = Configuration::new();
   let counter = AtomicUsize::new(0);
@@ -60,7 +61,7 @@ async fn main() -> Result<()> {
 
   let config = config
     .with_depth(1)
-    .with_proxies(vec![proxy0.to_string(), proxy1.to_string()].into())
+    .with_proxies(proxies)
     .with_caching(true);
 
   let mut website = Website::new(url);
@@ -129,7 +130,8 @@ async fn refresh_all_proxies() {
   log::info!("Rotating ALL Tor proxies");
   tokio::select! {
     _ = tor::refresh("127.0.0.1:9051") => (),
-    _ = tor::refresh("127.0.0.1:8051") => ()
+    _ = tor::refresh("127.0.0.1:8051") => (),
+    _ = tor::refresh("127.0.0.1:7051") => ()
   }
   log::info!("Successfully rotated ALL Tor proxies");
 }

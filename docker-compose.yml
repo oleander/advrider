@@ -4,15 +4,23 @@ services:
     ports:
       - 0.0.0.0:9050:9050
       - 0.0.0.0:9051:9051
+
   proxy1:
     image: dockage/tor-privoxy:latest
     ports:
       - 0.0.0.0:8050:9050
       - 0.0.0.0:8051:9051
 
+  proxy2:
+    image: dockage/tor-privoxy:latest
+    ports:
+      - 0.0.0.0:7050:9050
+      - 0.0.0.0:7051:9051
+
   scraper:
     platform: linux/arm64
     depends_on:
+      - proxy2
       - proxy1
       - proxy0
     build:
