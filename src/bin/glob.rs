@@ -47,7 +47,13 @@ mod tor {
   }
 }
 
-/// Command-line options defined using StructOpt
+async fn refresh_all_proxies(controllers: Vec<String>) {
+  let futures = controllers
+    .into_iter()
+    .map(|controller| tor::refresh(controller.clone()));
+  join_all(futures).await;
+}
+
 #[derive(StructOpt, Debug)]
 #[structopt(name = "scraper")]
 struct Opt {
@@ -85,7 +91,7 @@ struct Opt {
   page_limit: u32
 }
 
-#[tokio::main(flavor = "multi_thread", worker_threads = 10)]
+#[tokio::main(flavor = "multi_thread", worker_threads = 8)]
 async fn main() -> Result<()> {
   let opt = Opt::from_args();
 
@@ -215,11 +221,4 @@ async fn main() -> Result<()> {
   log::info!("Time passed: {:?}", start.elapsed());
 
   Ok(())
-}
-
-async fn refresh_all_proxies(controllers: Vec<String>) {
-  let futures = controllers
-    .into_iter()
-    .map(|controller| tor::refresh(controller.clone()));
-  join_all(futures).await;
 }
