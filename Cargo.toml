@@ -33,6 +33,8 @@ warp = "0.3.7"
 thiserror = "1.0.60"
 async-trait = "0.1.80"
 colored = "2.1.0"
+structopt = "0.3.26"
+futures = "0.3.30"
 
 ## override settings for tiktoken-rs
 [patch.crates-io.tiktoken-rs]

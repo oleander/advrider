@@ -3,7 +3,7 @@ use std::time::Instant;
 use std::vec;
 
 use spider::configuration::Configuration;
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use spider::website::Website;
 use tokio::io::AsyncWriteExt;
 use html2text::from_read;
@@ -20,7 +20,7 @@ mod tor {
     stream.flush().await.context("Failed to flush")
   }
 
-  pub async fn refresh(control_url: &str) -> Result<()> {
+  pub async fn refresh(control_url: String) -> Result<()> {
     let status = vec!["250 OK", "250 OK", "250 closing connection"];
     let mut stream = TcpStream::connect(control_url)
       .await
@@ -43,18 +43,62 @@ mod tor {
   }
 }
 
+use structopt::StructOpt;
+
+/// Command-line options defined using StructOpt
+#[derive(StructOpt, Debug)]
+#[structopt(name = "scraper")]
+struct Opt {
+  #[structopt(short, long, help = "https://advrider.com/f/threads/the-toolkit-thread.262998/page-[1-480]")]
+  url: String,
+
+  #[structopt(long = "proxies", help = "socks5://127.0.0.1:9050")]
+  proxies: Vec<String>,
+
+  #[structopt(long = "controllers", help = "127.0.0.0.1:9051")]
+  controllers: Vec<String>,
+
+  /// Rotate proxy every N requests
+  #[structopt(long, default_value = "30", help = "Rotate proxy every N requests")]
+  rotate_proxy_every: usize,
+
+  /// Enable verbose output
+  #[structopt(short, long, help = "Enable verbose output")]
+  verbose: bool,
+
+  // cache
+  #[structopt(long, help = "Enable caching")]
+  cache: bool
+}
+
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<()> {
   env_logger::init();
 
-  let url = "https://advrider.com/f/threads/the-toolkit-thread.262998/page-[1-480]";
+  let opt = Opt::from_args();
 
-  let proxy0 = "socks5://127.0.0.1:9050";
-  let proxy1 = "socks5://127.0.0.1:8050";
-  let proxy2 = "socks5://127.0.0.1:7050";
+  let url = opt.url.clone();
 
-  let proxies = vec![proxy0.to_string(), proxy1.to_string(), proxy2.to_string()].into();
-  let rotate_proxy_every = 30;
+  match (opt.proxies.len(), opt.controllers.len()) {
+    (0, _) => {
+      bail!("No proxies provided, using default");
+    }
+    (_, 0) => {
+      bail!("No controllers provided, using default");
+    }
+    (a, b) if a != b => {
+      bail!("Number of proxies and controllers must match ({} vs {})", a, b);
+    }
+    _ => ()
+  }
+
+  // let proxy0 = "socks5://127.0.0.1:9050";
+  // let proxy1 = "socks5://127.0.0.1:8050";
+  // let proxy2 = "socks5://127.0.0.1:7050";
+
+  // let proxies = vec![proxy0.to_string(), proxy1.to_string(), proxy2.to_string()].into();
+  let proxies = opt.proxies.into();
+  let rotate_proxy_every = opt.rotate_proxy_every;
 
   let mut config = Configuration::new();
   let counter = AtomicUsize::new(0);
@@ -65,11 +109,11 @@ async fn main() -> Result<()> {
     .with_proxies(proxies)
     .with_caching(true);
 
-  let mut website = Website::new(url);
-  let website = website.with_config(config.clone()).with_caching(true);
+  let mut website = Website::new(&url);
+  let website = website.with_config(config.clone()).with_caching(opt.cache);
   let mut channel = website.subscribe(rotate_proxy_every).unwrap();
 
-  refresh_all_proxies().await;
+  refresh_all_proxies(opt.controllers.clone()).await;
 
   tokio::spawn(async move {
     while let Ok(res) = channel.recv().await {
@@ -87,7 +131,7 @@ async fn main() -> Result<()> {
       if markdown_bytes.len() == 0 {
         log::warn!("[{}] Skipping empty page #{}", count, page);
         log::warn!("[{}] Will rotate Tor proxy", count);
-        refresh_all_proxies().await;
+        refresh_all_proxies(opt.controllers.clone()).await;
         continue;
       }
 
@@ -114,7 +158,7 @@ async fn main() -> Result<()> {
       } else if count % rotate_proxy_every == 0 && count > 0 {
         log::warn!("[{}] Resetting Tor proxy connection", count);
 
-        refresh_all_proxies().await;
+        refresh_all_proxies(opt.controllers.clone()).await;
       }
     }
   });
@@ -127,12 +171,18 @@ async fn main() -> Result<()> {
   Ok(())
 }
 
-async fn refresh_all_proxies() {
-  log::info!("Rotating ALL Tor proxies");
-  tokio::select! {
-    _ = tor::refresh("127.0.0.1:9051") => (),
-    _ = tor::refresh("127.0.0.1:8051") => (),
-    _ = tor::refresh("127.0.0.1:7051") => ()
-  }
-  log::info!("Successfully rotated ALL Tor proxies");
+use futures::future::join_all;
+
+async fn refresh_all_proxies(controllers: Vec<String>) {
+  let futures = controllers
+    .into_iter()
+    .map(|controller| tor::refresh(controller.clone()));
+  join_all(futures).await;
+  // log::info!("Rotating ALL Tor proxies");
+  // tokio::select! {
+  //   _ = tor::refresh("127.0.0.1:9051") => (),
+  //   _ = tor::refresh("127.0.0.1:8051") => (),
+  //   _ = tor::refresh("127.0.0.1:7051") => ()
+  // }
+  // log::info!("Successfully rotated ALL Tor proxies");
 }
