@@ -1,7 +1,10 @@
+use std::time::Duration;
+
 use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use thiserror::Error;
 use anyhow::Result;
+use tokio::time::sleep;
 
 #[derive(Error, Debug)]
 pub enum ControlError {
@@ -61,8 +64,7 @@ impl Command {
   }
 
   pub async fn authenticate(&mut self) -> Result<()> {
-    let command = format!("AUTHENTICATE \"{}\"", self.password);
-    self.send(&command, "250 OK").await
+    self.send(&format!("AUTHENTICATE \"{}\"", self.password), "250 OK").await
   }
 
   pub async fn quit(&mut self) -> Result<()> {
@@ -74,13 +76,20 @@ impl Command {
   }
 
   pub async fn liveness(&mut self) -> Result<()> {
-    self
-      .send("GETINFO network-liveness", "250-network-liveness=up")
-      .await
+    self.send("GETINFO network-liveness", "250-network-liveness=up").await
   }
 
   pub async fn wait_for_ready(&mut self) -> Result<()> {
-    self.liveness().await?;
+    self.authenticate().await?;
+
+    log::info!("Waiting for Tor to be ready ...");
+    while let Err(err) = self.liveness().await {
+      log::warn!("Tor is not ready yet: {}, wait ...", err);
+      sleep(Duration::from_secs(1)).await;
+      log::info!("Checking Tor status again ...");
+    }
+
+    log::info!("Tor is ready!");
     self.quit().await
   }
 
