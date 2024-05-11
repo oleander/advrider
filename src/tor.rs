@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use std::time::Duration;
 use core::future::AsyncDrop;
 
@@ -6,7 +5,6 @@ use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use thiserror::Error;
 use anyhow::Result;
-use tokio::sync::Mutex;
 use tokio::time::sleep;
 
 #[derive(Error, Debug)]
@@ -17,28 +15,23 @@ pub enum ControlError {
   CommandError(String, String, String)
 }
 
-#[derive(Debug, Clone)]
 pub struct Control {
-  stream: Arc<Mutex<TcpStream>>
+  stream: TcpStream
 }
 
 impl Control {
   pub async fn new(address: &str) -> Result<Self> {
     let stream = TcpStream::connect(address).await?;
     Ok(Self {
-      stream: Arc::new(Mutex::new(stream))
+      stream
     })
   }
 
   pub async fn send(&mut self, command: &str, expected: &str) -> Result<()> {
-    let mut stream = self.stream.lock().await;
-
-    let mut reader = BufReader::new(&mut *stream);
-    let mut response = String::new();
-
-    reader.read_line(&mut response).await?;
-    log::debug!("Received response: '{}'", response);
-    let actual = response.trim().to_string();
+    self.stream.write_all(command.as_bytes()).await?;
+    self.stream.write_all(b"\n").await?;
+    self.stream.flush().await?;
+    let actual = self.response().await?;
 
     if actual == expected {
       return Ok(());
@@ -46,11 +39,18 @@ impl Control {
 
     Err(ControlError::CommandError(expected.to_string(), command.to_string(), actual).into())
   }
+
+  async fn response(&mut self) -> Result<String> {
+    let mut reader = BufReader::new(&mut self.stream);
+    let mut response = String::new();
+    reader.read_line(&mut response).await?;
+    log::debug!("Received response: '{}'", response);
+    Ok(response.trim().to_string())
+  }
 }
 
-#[derive(Debug, Clone)]
 pub struct Command {
-  control:  Arc<Mutex<Control>>,
+  control:  Control,
   password: String,
   open:     bool
 }
@@ -59,27 +59,27 @@ impl Command {
   pub async fn new(address: &str, password: &str) -> Result<Self> {
     let control = Control::new(address).await?;
     let mut cmd = Self {
-      control:  Arc::new(Mutex::new(control)),
+      control,
       password: password.to_string(),
-      open:     false
+      open: false
     };
-    cmd.wait_for_ready().await?;
     Ok(cmd)
   }
 
-  pub async fn authenticate(&mut self) -> Result<()> {
+  pub async fn authenticate(mut self) -> Result<Self> {
+    log::info!("Authenticating with Tor ...");
     if self.open {
-      return Ok(());
+      return Ok(self);
     }
 
     self
       .send(&format!("AUTHENTICATE \"{}\"", self.password), "250 OK")
       .await?;
     self.open = true;
-    Ok(())
+    Ok(self)
   }
 
-  pub async fn quit(&mut self) -> Result<()> {
+  pub async fn quit(mut self) -> Result<()> {
     if !self.open {
       return Ok(());
     }
@@ -90,7 +90,7 @@ impl Command {
   }
 
   pub async fn newnym(&mut self) -> Result<()> {
-    self.send("SIGNAL NEWNYM", "XX").await
+    self.send("SIGNAL NEWNYM", "250 OK").await
   }
 
   pub async fn liveness(&mut self) -> Result<()> {
@@ -100,8 +100,6 @@ impl Command {
   }
 
   pub async fn wait_for_ready(&mut self) -> Result<()> {
-    self.authenticate().await?;
-
     log::info!("Waiting for Tor to be ready ...");
     while let Err(err) = self.liveness().await {
       log::warn!("Tor is not ready yet: {}, wait ...", err);
@@ -110,31 +108,16 @@ impl Command {
     }
 
     log::info!("Tor is ready!");
-    // self.quit().await
     Ok(())
   }
 
   pub async fn refresh(&mut self) -> Result<()> {
-    self.authenticate().await?;
     self.newnym().await?;
     self.wait_for_ready().await
-    // self.quit().await
   }
 
   pub async fn send(&mut self, command: &str, expected: &str) -> Result<()> {
     log::debug!("Sending command '{}' and expecting '{}'", command, expected);
-    self.control.lock().await.send(command, expected).await
-  }
-}
-
-impl Drop for Command {
-  fn drop(&mut self) {
-      if Arc::strong_count(&self.control) == 1 {
-          let control = self.control.clone();
-          tokio::spawn(async move {
-              let mut control = control.lock().await;
-              control.quit().await.expect("Failed to quit Tor control");
-          });
-      }
+    self.control.send(command, expected).await
   }
 }
