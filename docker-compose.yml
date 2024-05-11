@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   scraper:
     depends_on:
@@ -11,21 +9,12 @@ services:
       - ./data:/app/data
     env_file: .env
     environment:
-      PROXY_URL: http://proxy:3128
+      PROXY_URL: socks5://rotatingproxy:9050
     restart: on-failure
 
   proxy:
-    image: zhaowde/rotating-tor-http-proxy
+    image: osminogin/tor-simple
     ports:
-      - 3128:3128
-      - 4444:4444
-    environment:
-      TOR_INSTANCES: 10
-      TOR_REBUILD_INTERVAL: 1800
-    restart: always
-    healthcheck:
-      test: curl -sx http://proxy:4444 ifconfig.io
-      interval: 10m
-      timeout: 10s
-      retries: 3
+      - 0.0.0.0:9050:9050
+
 
