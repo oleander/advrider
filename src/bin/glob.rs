@@ -48,13 +48,13 @@ mod tor {
 async fn main() -> Result<()> {
   env_logger::init();
 
-  let url = "https://advrider.com/f/threads/thinwater-escapades.1502022/page-[1-40]";
+  let url = "https://advrider.com/f/threads/thinwater-escapades.1502022/page-[1-300]";
   let proxy = "socks5://127.0.0.1:9050";
   let rotate_proxy_every = 5;
 
+  let mut config = Configuration::new();
   let counter = AtomicUsize::new(0);
   let start = Instant::now();
-  let mut config = Configuration::new();
 
   let config = config
     .with_depth(1)
