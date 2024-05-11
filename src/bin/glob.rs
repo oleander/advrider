@@ -2,8 +2,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 use std::vec;
 
+use advrider::ip;
 use anyhow::{Context, Result};
-use tokio::io::BufReader;
 use html2text::from_read;
 use reqwest::header::HeaderMap;
 use reqwest::header;
@@ -12,30 +12,35 @@ use spider::tokio;
 use spider::website::Website;
 
 mod tor {
-  use anyhow::bail;
+  use lazy_static::lazy_static;
+  use anyhow::{bail, Context, Result};
   use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use anyhow::{Context, Result};
   use tokio::net::TcpStream;
 
+  lazy_static! {}
+
+  const CONTROL_URL: &str = "127.0.0.1:9051";
+
   async fn send(command: &str, stream: &mut TcpStream) -> Result<()> {
-    stream.write(command.as_bytes()).await?;
+    stream.write_all(command.as_bytes()).await?;
     stream.write_all(b"\r\n").await?;
     stream.flush().await.context("Failed to flush")
   }
 
   pub async fn refresh() -> Result<()> {
-    let mut stream = TcpStream::connect("127.0.0.1:9051").await?;
+    let status = vec!["250 OK", "250 OK", "250 closing connection"];
+    let mut stream = TcpStream::connect(CONTROL_URL).await?;
+
     send("AUTHENTICATE \"\"", &mut stream).await?;
     send("SIGNAL NEWNYM", &mut stream).await?;
     send("QUIT", &mut stream).await?;
-
-    let expected = vec!["250 OK", "250 OK", "250 closing connection"];
 
     let mut reader = BufReader::new(&mut stream);
     let mut response = String::new();
 
     while reader.read_line(&mut response).await? > 0 {
-      if !expected.iter().any(|e| response.contains(e)) {
+      log::info!("Response: {}", response.trim());
+      if !status.iter().any(|status| response.contains(status)) {
         bail!("Unexpected response: {}", response);
       }
     }
@@ -49,9 +54,9 @@ async fn main() -> Result<()> {
   env_logger::init();
 
   let mut b = Configuration::new();
-  let h = header()?;
   let config = b
     .with_depth(1)
+    .with_headers(header()?)
     .with_proxies(vec!["socks5://127.0.0.1:9050".to_string()].into())
     .with_caching(true);
 
@@ -69,15 +74,17 @@ async fn main() -> Result<()> {
 
   tokio::spawn(async move {
     while let Ok(res) = rx2.recv().await {
-      let count = counter.load(Ordering::SeqCst);
-      counter.fetch_add(1, Ordering::SeqCst);
+      let count = counter.fetch_add(1, Ordering::SeqCst);
 
-      if count % 10 != 0 || count == 0 {
-        log::info!("Count: {}", count);
-        continue;
+      if count % 10 == 0 {
+        match tor::refresh().await {
+          Ok(_) => log::info!("Tor refreshed successfully"),
+          Err(e) => log::error!("Failed to refresh Tor: {}", e)
+        }
+
+        log::info!("Current IP: {:?}", ip::get().await);
       }
 
-      tor::refresh().await;
     }
   });
 
