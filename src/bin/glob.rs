@@ -109,10 +109,10 @@ async fn main() -> Result<()> {
     }
   });
 
+  log::info!("Scraping website, hold on...");
   website.scrape().await;
-  let duration = start.elapsed();
 
-  log::info!("Time passed: {:?}", duration);
+  log::info!("Time passed: {:?}", start.elapsed());
 
   Ok(())
 }
