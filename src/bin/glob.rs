@@ -14,6 +14,7 @@ mod tor {
   use anyhow::{bail, Context, Result};
   use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
   use tokio::net::TcpStream;
+  use tokio::time::sleep;
 
   const CONTROL_URL: &str = "127.0.0.1:9051";
 
@@ -39,6 +40,9 @@ mod tor {
         bail!("Unexpected Tor response: {} vs {:?}", response, status);
       }
     }
+
+    // Ensure the connection is closed
+    sleep(Duration::from_millis(200)).await;
 
     Ok(())
   }
@@ -67,7 +71,6 @@ async fn main() -> Result<()> {
 
   log::info!("Rotating Tor proxy");
   tor::refresh().await?;
-  log::info!("Resetting IP address to {}", ip::get().await.unwrap());
 
   tokio::spawn(async move {
     while let Ok(res) = channel.recv().await {
@@ -108,8 +111,6 @@ async fn main() -> Result<()> {
           Ok(_) => log::info!("[{}] Successfully refreshed Tor", count),
           Err(e) => log::error!("[{}] Failed to refresh Tor: {}", count, e)
         }
-
-        log::info!("[{}] Resetting IP address to {}", count, ip::get().await.unwrap());
       }
     }
   });
