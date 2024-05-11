@@ -1,3 +1,4 @@
+use html2text::from_read;
 use reqwest::header::HeaderMap;
 use std::time::Instant;
 use std::vec;
@@ -11,6 +12,8 @@ use anyhow::Result;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+  env_logger::init();
+
   let mut b = Configuration::new();
   let h = header()?;
   let config = b
@@ -18,7 +21,7 @@ async fn main() -> Result<()> {
     .with_proxies(vec!["socks5://127.0.0.1:9050".to_string()].into())
     .with_caching(true);
 
-  let mut website: Website = Website::new("https://advrider.com/f/threads/thinwater-escapades.1502022/page-[1-5]");
+  let mut website: Website = Website::new("https://advrider.com/f/threads/thinwater-escapades.1502022/page-[1-40]");
 
   website
     .configuration
@@ -38,22 +41,16 @@ async fn main() -> Result<()> {
     return Ok(());
   };
 
-  for page in pages.iter() {
-    let str = page.get_html();
+  let body = website
+  .get_pages()
+  .context("No web pages received")?
+  .iter()
+  .map(|page| from_read(page.get_html().as_bytes(), usize::MAX))
+  .collect::<Vec<String>>()
+  .join("\n");
 
-    if str.contains("snouser") {
-      println!("Logged in!");
-    } else {
-      println!("Not logged in!");
-    }
-
-    if let Some(bytes) = page.get_bytes() {
-      println!("Page size is: {:?}", bytes.len());
-    } else {
-      println!("Nothing returned");
-    }
-  }
-
+  log::info!("Writing to file data/dump.txt");
+  std::fs::write("data/dump.txt", body).context("Failed to write to file")?;
   for link in links {
     println!("- {:?}", link.as_ref());
   }

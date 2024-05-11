@@ -6,21 +6,6 @@ services:
       - 0.0.0.0:9051:9051
       - 0.0.0.0:8118:8118
 
-  # spider:
-  #   platform: linux/arm64
-  #   depends_on:
-  #     - proxy
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile.spider
-  #   ports:
-  #     - 0.0.0.0:3031:3031
-  #     - 0.0.0.0:3030:3030
-  #   environment:
-  #     GITHUB_TOKEN: ${GITHUB_TOKEN}
-  #   env_file: .env
-  #   restart: on-failure
-
   scraper:
     platform: linux/arm64
     depends_on:
@@ -33,8 +18,6 @@ services:
     volumes:
       - ./data:/app/data
       - ./cache:/cache
-    # ports:
-    #   - 0.0.0.0:3030:3030
     env_file: .env
     restart: on-failure
 
