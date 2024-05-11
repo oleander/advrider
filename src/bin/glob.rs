@@ -1,5 +1,6 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
+use std::collections::HashSet;
 
 use async_std::path::PathBuf;
 use env_logger::Env;
@@ -136,69 +137,15 @@ async fn main() -> Result<()> {
   let counter = AtomicUsize::new(0);
   let start = Instant::now();
 
-  // pub fn get_blacklist(&self) -> Box<regex::RegexSet> {
-  //     match &self.blacklist_url {
-  //         Some(blacklist) => match regex::RegexSet::new(&**blacklist) {
-  //             Ok(s) => Box::new(s),
-  //             _ => Default::default(),
-  //         },
-  //         _ => Default::default(),
-  //     }
-  // }
-  //   https://advrider.com/f/{forums/racing.25,threads/*}{/,/page-[0-9]*, }
-
-  // https://advrider.com/f/forums/racing.25/
-  // https://advrider.com/f/forums/racing.25/page-4
-  // https://advrider.com/f/forums/racing.25/page-5/
-  // https://advrider.com/f/threads/motogp-francais-spoileurs.1733155/
-  // https://advrider.com/f/threads/motogp-francais-spoileurs.1733155/page-281
-  // https://advrider.com/f/threads/motogp-francais-spoileurs.1733155/page-2/
-
-  // let set = regex::RegexSet::new(&[
-  //   r"https://advrider\.com/f/forums/racing\.25",
-  //   r"https://advrider\.com/f/forums/racing\.25/page-\d+",
-  //   r"https://advrider\.com/f/threads/[^/]+",
-  //   r"https://advrider\.com/f/threads/[^/]+/page-\d+"
-  // ]).unwrap();
-
-  // let one_pattern = "^(?!https:\/\/advrider\.com\/f\/(forums\/racing\.25|threads\/[^\/]+)\/(page-\d+\/?)?$).*
-  // "
-
-  // let patterns = vec![
-  //   "^/f/members/.*".into(),
-  //   "^/f/posts/.*".into(),
-  // ]
-  // .into();
-
-  let budget: HashMap<&str, u32> = HashMap::from([
-    ("/f/forums/racing.25", 1),
-    ("/f/forums/racing.25/*", 1),
-    ("/f/threads/*/*", 1),
-    ("/f/threads/*/*/", 1),
-    ("/f/threads/*", 1)
-  ]);
-
   let config = config
     .with_respect_robots_txt(true)
     .with_caching(opt.cache)
-    .with_proxies(proxies)
-    .with_budget(budget.clone().into());
-  // .with_blacklist_url(patterns);
-
-  // .with_delay(50)
-  // .with_depth(2);
+    .with_proxies(proxies);
 
   let mut website = Website::new(&url);
-  // website
-  //   .configuration
-  //   .blacklist_url
-  //   .get_or_insert(Default::default())
-  //   .append(&mut vec!["^/f/members/.*".into(), "^/f/posts/.*".into()]);
 
   let website = website.with_config(config.clone());
   let mut channel = website.subscribe(16).unwrap();
-  // let mut guard = website.subscribe_guard().unwrap();
-  // let queue = website.queue(opt.proxies.len()).unwrap();
 
   if opt.only_print_urls {
     log::warn!("Will only print URLs, not save to disk");
@@ -218,29 +165,6 @@ async fn main() -> Result<()> {
 
       let purl = Url::parse(url).unwrap();
       let path = purl.path().to_owned();
-      let include = budget
-        .iter()
-        .any(|(pattern, _)| glob::Pattern::new(pattern).unwrap().matches(&path));
-
-      if !include {
-        tokio::fs::OpenOptions::new()
-          .append(true)
-          .create(true)
-          .open("paths.txt")
-          .await
-          .context("Failed to open file")
-          .unwrap()
-          .write_all((path.clone() + "\n").as_bytes())
-          .await
-          .context("Failed to write to file")
-          .unwrap();
-        log::warn!("[{}] Skipping URL: {}", count, path);
-      }
-
-      // let parsed_url = Url::parse(url).unwrap();
-      // let _size = queue.send(parsed_url.into()).unwrap();
-
-      // guard.inc();
 
       log::info!("[{}] URL: {}", count, url);
 
@@ -253,10 +177,32 @@ async fn main() -> Result<()> {
         continue;
       }
 
+      let doc = scraper::Html::parse_document(&html);
+      let selector = scraper::Selector::parse("a.PreviewTooltip").unwrap();
+      for element in doc.select(&selector) {
+        if let Some(href) = element.value().attr("href") {
+          let href_with_newline = format!("{}\n", href);
+          let b = href_with_newline.as_bytes();
+
+          tokio::fs::OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open("hrefs.txt")
+            .await
+            .context("Failed to open file")
+            .unwrap()
+            .write_all(b)
+            .await
+            .context("Failed to write to file")
+            .unwrap();
+        }
+      }
+
       log::info!("[{}] Received {} bytes from page #{}", count, markdown_bytes.len(), page);
 
       let output_file = format!("page-{}.md", page);
-      let output_path = opt.output_dir.join(output_file);
+      let dir = opt.output_dir.clone();
+      let output_path = dir.join(output_file);
 
       tokio::fs::OpenOptions::new()
         .write(true)
@@ -287,11 +233,11 @@ async fn main() -> Result<()> {
   });
 
   log::info!("Scraping website, hold on...");
-  website.crawl().await;
+  website.scrape().await;
 
   log::info!("URL: {}", website.get_links().len());
 
   log::info!("Time passed: {:?}", start.elapsed());
-
+  // save to disk
   Ok(())
 }

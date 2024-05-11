@@ -7,7 +7,7 @@ edition = "2021"
 name = "advrider"
 
 [dependencies]
-spider = { version = "=1.93.28", features = ["socks", "cache", "cache_mem", "ua_generator",  "budget", "regex"] }
+spider = { version = "=1.93.28", features = ["socks", "cache", "cache_mem", "ua_generator",  "budget", "glob"] }
 
 llm-chain-openai = "0.13.0"
 llm-chain = "*"
@@ -36,6 +36,7 @@ colored = "2.1.0"
 structopt = "0.3.26"
 futures = "0.3.30"
 glob = "0.3.1"
+scraper = "0.19.0"
 
 ## override settings for tiktoken-rs
 [patch.crates-io.tiktoken-rs]
