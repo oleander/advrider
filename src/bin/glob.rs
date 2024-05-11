@@ -1,6 +1,7 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 
+use env_logger::Env;
 use spider::configuration::Configuration;
 use anyhow::{bail, Context, Result};
 use spider::website::Website;
@@ -73,6 +74,7 @@ struct Opt {
   // print only urls
   #[structopt(long, help = "Print only URLs, do not save")]
   only_print_urls: bool,
+
   // set output dir
 
   // limit number of pages
@@ -84,11 +86,18 @@ struct Opt {
 async fn main() -> Result<()> {
   let opt = Opt::from_args();
 
-  if opt.verbose {
-    env!("RUST_LOG", "debug");
-  }
+  let level = if opt.verbose {
+    "debug"
+  } else {
+    "info"
+  };
 
-  env_logger::init();
+  let env = Env::default()
+    .filter_or("RUST_LOG", level)
+    .write_style_or("RUST_LOG_STYLE", "always");
+
+  env_logger::init_from_env(env);
+
   let url = opt.url.clone();
 
   match (opt.proxies.len(), opt.controllers.len()) {
@@ -115,7 +124,9 @@ async fn main() -> Result<()> {
     .with_depth(1)
     .with_proxies(proxies)
     .with_caching(opt.cache)
-    .with_limit(opt.page_limit);
+    .with_limit(opt.page_limit)
+    .with_respect_robots_txt(true)
+    .with_delay(100);
 
   let mut website = Website::new(&url);
   let website = website.with_config(config.clone()).with_caching(opt.cache);
@@ -141,7 +152,7 @@ async fn main() -> Result<()> {
       let output_path = format!("data/pages/{}.md", page);
 
       let parsed_url = Url::parse(url).unwrap();
-      let size = queue.send(parsed_url.into()).unwrap();
+      let _size = queue.send(parsed_url.into()).unwrap();
 
       guard.inc();
 
