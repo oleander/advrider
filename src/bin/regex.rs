@@ -1,40 +1,34 @@
-extern crate regex;
-use regex::RegexSet;
-use spider::compact_str::CompactString;
 use std::collections::HashMap;
 
 fn main() {
-    let patterns: Vec<CompactString> = vec![
-        "^/f/forums/racing\\.25/$".into(),
-        "^/f/forums/racing\\.25/page-\\d+/?$".into(),
-        "^/f/threads/[^/]+/$".into(),
-        "^/f/threads/[^/]+/page-\\d+/?$".into(),
-    ];
-
-    let budget = HashMap::from([
-        ("/f/forums/racing.25*", 5),
-        ("/f/threads/*/page-*", 10),
-        ("/f/threads/*", 2),
+    let mut budget = HashMap::from([
+        ("/f/forums/racing.25/*".to_string(), 5),
+        ("/f/threads/*/page-*".to_string(), 10),
+        ("/f/threads/*".to_string(), 2),
+        ("/f/*".to_string(), 1), // Default budget for unmatched paths
     ]);
 
-    let set = RegexSet::new(&patterns).unwrap();
+    let test_urls = [
+        "/f/forums/racing.25/page-4",
+        "/f/threads/motogp-francais-spoileurs.1733155/page-281",
+        "/f/posts/50465159/help/",
+    ];
 
-    // Example URL to test
-    let test_url = "/f/posts/50465159/help/";
-
-    // Check if the URL is blocked
-    if set.is_match(test_url) {
-        println!("URL is blocked: {}", test_url);
-    } else {
-        println!("URL is allowed: {}", test_url);
+    for url in test_urls.iter() {
+        let is_within_budget = check_budget(url, &mut budget);
+        println!("URL is within budget ({}) for '{}': {}", is_within_budget, url, budget.get("/f/*").unwrap_or(&0));
     }
+}
 
-    // Example budget check (pseudo-code, implement actual logic to decrement and check budget)
-    let budget_check = |path: &str| -> bool {
-        // Simulate checking the budget
-        budget.get(path).map_or(false, |&limit| limit > 0)
-    };
-
-    // Print if the URL is within budget
-    println!("URL is within budget: {}", budget_check(test_url));
+fn check_budget(url: &str, budget: &mut HashMap<String, i32>) -> bool {
+    // Here we would have a more sophisticated matching system
+    let pattern = "/f/*"; // Simplified: This would be determined by matching patterns
+    budget.get_mut(pattern).map_or(false, |limit| {
+        if *limit > 0 {
+            *limit -= 1; // Decrement the budget
+            true
+        } else {
+            false
+        }
+    })
 }
