@@ -71,9 +71,11 @@ struct Opt {
 
   // print only urls
   #[structopt(long, help = "Print only URLs, do not save")]
-  only_print_urls: bool
+  only_print_urls: bool,
   // set output dir
   // limit number of pages
+  #[structopt(long, help = "Limit number of pages", default_value = "50")]
+  page_limit:      usize
 }
 
 #[tokio::main(flavor = "multi_thread")]
@@ -138,8 +140,12 @@ async fn main() -> Result<()> {
       let page = url.split("/").last().unwrap().split("-").last().unwrap();
       let output_path = format!("data/pages/{}.md", page);
 
-
       log::info!("[{}] URL: {}", count, url);
+
+      if count > opt.page_limit {
+        log::warn!("[{}] Reached page limit --page-limit={}", count, opt.page_limit);
+        std::process::exit(0);
+      }
 
       if opt.only_print_urls {
         continue;
