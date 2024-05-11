@@ -1,8 +1,10 @@
 services:
   proxy:
-    image: osminogin/tor-simple
+    image: dockage/tor-privoxy:latest
     ports:
       - 0.0.0.0:9050:9050
+      - 0.0.0.0:9051:9051
+      - 0.0.0.0:8118:8118
 
   # spider:
   #   platform: linux/arm64
