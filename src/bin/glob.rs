@@ -8,8 +8,6 @@ use spider::configuration::Configuration;
 use spider::tokio;
 use spider::website::Website;
 
-use crate::spider::http_cache_reqwest::CacheManager;
-
 #[tokio::main]
 async fn main() {
   let mut b = Configuration::new();
@@ -39,7 +37,7 @@ async fn main() {
   };
 
   for page in pages.iter() {
-    if let Some(bytes) =  page.get_bytes() {
+    if let Some(bytes) = page.get_bytes() {
       println!("Page size is: {:?}", bytes.len());
     } else {
       println!("Nothing returned");
