@@ -1,16 +1,18 @@
-//! `cargo run --example url_glob --features glob`
-extern crate spider;
-
+use reqwest::header::HeaderMap;
 use std::time::Instant;
 use std::vec;
+use reqwest::header;
 
 use spider::configuration::Configuration;
 use spider::tokio;
 use spider::website::Website;
+use anyhow::Context;
+use anyhow::Result;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<()> {
   let mut b = Configuration::new();
+  let h = header()?;
   let config = b
     .with_depth(1)
     .with_proxies(vec!["socks5://127.0.0.1:9050".to_string()].into())
@@ -33,10 +35,18 @@ async fn main() {
   let links = website.get_links();
   let Some(pages) = website.get_pages() else {
     println!("No pages found");
-    return;
+    return Ok(());
   };
 
   for page in pages.iter() {
+    let str = page.get_html();
+
+    if str.contains("snouser") {
+      println!("Logged in!");
+    } else {
+      println!("Not logged in!");
+    }
+
     if let Some(bytes) = page.get_bytes() {
       println!("Page size is: {:?}", bytes.len());
     } else {
@@ -48,5 +58,15 @@ async fn main() {
     println!("- {:?}", link.as_ref());
   }
 
-  println!("Time elapsed in website.crawl() is: {:?} for total pages: {:?}", duration, links.len())
+  println!("Time elapsed in website.crawl() is: {:?} for total pages: {:?}", duration, links.len());
+
+  Ok(())
+}
+
+fn header() -> Result<Option<HeaderMap>> {
+  let mut headers = HeaderMap::new();
+  headers.insert(header::ACCEPT, "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7".parse().unwrap());
+  headers.insert(header::ACCEPT_LANGUAGE, "en-GB,en-US;q=0.9,en;q=0.8,sv;q=0.7".parse().unwrap());
+  headers.insert(header::COOKIE, "_gcl_au=1.1.82089729.1713720688; _gid=GA1.2.1985556420.1713720688; xf_logged_in=1; xf_session=867c856b44b55341ea9c2e9b34fe6808; _ga_BCFR910NDY=GS1.1.1713720688.1.1.1713722217.0.0.0; _ga=GA1.2.469143051.1713720688".parse().unwrap());
+  Ok(Some(headers))
 }
