@@ -5,13 +5,14 @@ use spider::configuration::Configuration;
 use spider::tokio;
 use spider::website::Website;
 use std::time::Instant;
+use std::vec;
 
 #[tokio::main]
 async fn main() {
     let mut b = Configuration::new();
-    let config = b.with_depth(1);
+    let config = b.with_depth(1).with_proxies(vec!["socks5://127.0.0.1:9050".to_string()].into());
     let mut website: Website = Website::new(
-      "https://spider.cloud",
+      "https://advrider.com/f/threads/thinwater-escapades.1502022/page-[1-5]"
     );
 
     website
@@ -33,7 +34,7 @@ async fn main() {
     };
 
     for page in pages.iter() {
-        println!("- {:?}", page);
+        println!("Page");
     }
 
     for link in links {
