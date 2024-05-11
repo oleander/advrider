@@ -1,3 +1,7 @@
+#![allow(dead_code)]
+#![allow(unused_variables)]
+#![allow(unused_imports)]
+
 use std::time::Duration;
 
 use spider::configuration::{Configuration, GPTConfigs, WaitForIdleNetwork};
@@ -9,12 +13,12 @@ use html2text::from_read;
 use log::{error, info};
 use spider::tokio;
 
-// const USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 OPR/109.0.0.0";
-const URL: &str = "https://www.advrider.com/f/threads/offroad-riding-in-germany.1349208/page-[1-5]";
+const USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 OPR/109.0.0.0";
+const URL: &str = "https://advrider.com/f/threads/thinwater-escapades.1502022/page-[1-2]";
 const OPENAI_MODEL: &str = "gpt-3.5-turbo";
 const OPENAI_MAX_TOKEN: u16 = 512;
 const RESPECT_ROBOT: bool = true;
-const REDIRECT_LIMIT: usize = 2;
+const REDIRECT_LIMIT: usize = 1;
 
 // use warp::Filter;
 
@@ -44,10 +48,10 @@ async fn perform_main_tasks() -> Result<()> {
 async fn main() -> Result<()> {
   env_logger::init();
 
-  tokio::select! {
-    // _ = run_health_check_server() => {},
-    _ = perform_main_tasks() => {},
-  }
+  // wait for 5 sec
+  tokio::time::sleep(Duration::from_secs(5)).await;
+
+  perform_main_tasks().await?;
 
   Ok(())
 }
@@ -84,16 +88,17 @@ async fn fetch(url: &str) -> Result<String> {
     .with_proxies(proxies.into())
     // .with_openai(openai_config)
     .with_headers(header()?)
-    .with_redirect_limit(1)
-    // .with_config(config())
-    .with_caching(false)
-    .with_tld(false)
+    // .with_redirect_limit(1)
+    .with_config(config())
+    // .with_caching(false)
+    // .with_tld(false)
+    .with_depth(2)
     .with_limit(2)
     .build()
     .context("Could not build webpage")?;
 
   info!("Starting the crawler ...");
-  website.crawl().await;
+  website.scrape().await;
 
   info!("Starting processing the raw data ...");
   Ok(
@@ -110,8 +115,8 @@ async fn fetch(url: &str) -> Result<String> {
 fn config() -> Configuration {
   Configuration::new()
     .with_respect_robots_txt(RESPECT_ROBOT)
-    .with_redirect_limit(REDIRECT_LIMIT)
-    // .with_user_agent(USER_AGENT.into())
+    .with_redirect_limit(2)
+    .with_user_agent(USER_AGENT.into())
     .build()
 }
 

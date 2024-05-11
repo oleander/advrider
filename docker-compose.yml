@@ -1,6 +1,5 @@
 services:
   proxy:
-    platform: linux/amd64
     image: osminogin/tor-simple
     ports:
       - 0.0.0.0:9050:9050
