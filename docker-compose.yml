@@ -1,20 +1,34 @@
 services:
-  scraper:
-    depends_on:
-      - proxy
-    build:
-      context: .
-      dockerfile: Dockerfile
-    volumes:
-      - ./data:/app/data
-    env_file: .env
-    environment:
-      PROXY_URL: socks5://rotatingproxy:9050
-    restart: on-failure
-
   proxy:
     image: osminogin/tor-simple
     ports:
       - 0.0.0.0:9050:9050
 
+  spider:
+    depends_on:
+      - proxy
+    build:
+      context: .
+      dockerfile: Dockerfile.spider
+    ports:
+      - 0.0.0.0:3030:3030
+      - 0.0.0.0:3031:3031
+    environment:
+      GITHUB_TOKEN: ${GITHUB_TOKEN}
+    env_file: .env
+    restart: on-failure
 
+  scraper:
+    depends_on:
+      - proxy
+      - spider
+    build:
+      context: .
+      dockerfile: Dockerfile.scraper
+    volumes:
+      - ./data:/app/data
+    env_file: .env
+    environment:
+      PROXY_URL: socks5://proxy:9050
+      GITHUB_TOKEN: ${GITHUB_TOKEN}
+    restart: on-failure
