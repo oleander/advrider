@@ -47,7 +47,8 @@ mod tor {
 async fn main() -> Result<()> {
   env_logger::init();
 
-  let url = "https://advrider.com/f/threads/sena-s20-experience.993790/page-[1-100]";
+  let url = "https://advrider.com/f/threads/the-toolkit-thread.262998/page-[1-480]";
+
   let proxy0 = "socks5://127.0.0.1:9050";
   let proxy1 = "socks5://127.0.0.1:8050";
   let proxy2 = "socks5://127.0.0.1:7050";
@@ -90,7 +91,7 @@ async fn main() -> Result<()> {
         continue;
       }
 
-      log::info!("[{}] Received {} bytes from page #{} ({})", count, markdown_bytes.len(), page, url);
+      log::info!("[{}] Received {} bytes from page #{}", count, markdown_bytes.len(), page);
 
       tokio::fs::OpenOptions::new()
         .write(true)
