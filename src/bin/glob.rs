@@ -73,10 +73,13 @@ struct Opt {
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<()> {
-  env_logger::init();
-
   let opt = Opt::from_args();
 
+  if (opt.verbose) {
+    env!("RUST_LOG", "info");
+  }
+
+  env_logger::init();
   let url = opt.url.clone();
 
   match (opt.proxies.len(), opt.controllers.len()) {
