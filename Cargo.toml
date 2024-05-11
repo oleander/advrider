@@ -33,6 +33,7 @@ rand = "0.8.5"
 html2text = "0.12.5"
 warp = "0.3.7"
 thiserror = "1.0.60"
+async-trait = "0.1.80"
 
 ## override settings for tiktoken-rs
 [patch.crates-io.tiktoken-rs]

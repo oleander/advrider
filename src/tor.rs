@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use async_trait::async_trait;
 use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use thiserror::Error;
@@ -46,10 +47,39 @@ impl Control {
   }
 }
 
+#[async_trait]
+pub trait Shared {
+  async fn send(&mut self, command: &str, expected: &str) -> Result<()>;
+  fn control(&mut self) -> &mut Control;
+}
+
+#[async_trait]
+impl Shared for Authenticated {
+  async fn send(&mut self, command: &str, expected: &str) -> Result<()> {
+    log::debug!("Sending command '{}' and expecting '{}'", command, expected);
+    self.control().send(command, expected).await
+  }
+
+  fn control(&mut self) -> &mut Control {
+    &mut self.control
+  }
+}
+
+#[async_trait]
+impl Shared for Command {
+  async fn send(&mut self, command: &str, expected: &str) -> Result<()> {
+    log::debug!("Sending command '{}' and expecting '{}'", command, expected);
+    self.control().send(command, expected).await
+  }
+
+  fn control(&mut self) -> &mut Control {
+    &mut self.control
+  }
+}
+
 pub struct Command {
   control: Control,
-  auth:    String,
-  open:    bool
+  auth:    String
 }
 
 pub struct Authenticated {
@@ -99,8 +129,7 @@ impl Command {
   pub async fn new(address: &str, password: &str) -> Result<Self> {
     Ok(Self {
       control: Control::new(address).await?,
-      auth:    format!("AUTHENTICATE \"{}\"", password),
-      open:    false
+      auth:    format!("AUTHENTICATE \"{}\"", password)
     })
   }
 

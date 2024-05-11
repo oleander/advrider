@@ -24,6 +24,7 @@ dependencies = [
  "anyhow",
  "async-openai 0.21.0",
  "async-std",
+ "async-trait",
  "dotenv",
  "env_logger",
  "html2text",
