@@ -74,12 +74,10 @@ struct Opt {
   #[structopt(long, help = "Print only URLs, do not save")]
   only_print_urls: bool,
   // set output dir
-  #[structopt(long, help = "Set output directory", default_value = "data/pages")]
-  output_dir:      String,
 
   // limit number of pages
   #[structopt(long, help = "Limit number of pages", default_value = "50")]
-  page_limit: usize
+  page_limit: u32
 }
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 10)]
@@ -106,7 +104,7 @@ async fn main() -> Result<()> {
     _ => ()
   }
 
-  let proxies = opt.proxies.into();
+  let proxies = opt.proxies.clone().into();
   let rotate_proxy_every = opt.rotate_proxy_every;
 
   let mut config = Configuration::new();
@@ -116,7 +114,8 @@ async fn main() -> Result<()> {
   let config = config
     .with_depth(1)
     .with_proxies(proxies)
-    .with_caching(opt.cache);
+    .with_caching(opt.cache)
+    .with_limit(opt.page_limit);
 
   let mut website = Website::new(&url);
   let website = website.with_config(config.clone()).with_caching(opt.cache);
@@ -141,19 +140,12 @@ async fn main() -> Result<()> {
       let page = url.split("/").last().unwrap().split("-").last().unwrap();
       let output_path = format!("data/pages/{}.md", page);
 
-      let mut parsed_url = Url::parse(url).unwrap();
+      let parsed_url = Url::parse(url).unwrap();
       let size = queue.send(parsed_url.into()).unwrap();
-
-      log::info!("Queue size: {}", size);
 
       guard.inc();
 
       log::info!("[{}] URL: {}", count, url);
-
-      if count > opt.page_limit {
-        log::warn!("[{}] Reached page limit --page-limit={}", count, opt.page_limit);
-        std::process::exit(0);
-      }
 
       if opt.only_print_urls {
         continue;
