@@ -108,7 +108,12 @@ async fn setup_client() -> Client {
   headers.insert("Sec-Fetch-Site", "none".parse().unwrap());
   headers.insert("Sec-Fetch-User", "?1".parse().unwrap());
   headers.insert("Upgrade-Insecure-Requests", "1".parse().unwrap());
-  headers.insert("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 OPR/109.0.0.0".parse().unwrap());
+  headers.insert(
+    "User-Agent",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 OPR/109.0.0.0"
+      .parse()
+      .unwrap()
+  );
   let proxy = Proxy::http("http://127.0.0.1:5566").unwrap();
   Client::builder()
     .default_headers(headers)

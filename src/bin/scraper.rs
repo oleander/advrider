@@ -13,7 +13,8 @@ use html2text::from_read;
 use log::{error, info};
 use spider::tokio;
 
-const USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 OPR/109.0.0.0";
+const USER_AGENT: &str =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 OPR/109.0.0.0";
 const URL: &str = "https://advrider.com/f/threads/thinwater-escapades.1502022/page-[1-2]";
 const OPENAI_MODEL: &str = "gpt-3.5-turbo";
 const OPENAI_MAX_TOKEN: u16 = 512;
