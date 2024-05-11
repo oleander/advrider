@@ -13,12 +13,9 @@ use spider::website::Website;
 use tokio::io::AsyncWriteExt;
 
 mod tor {
-  use lazy_static::lazy_static;
   use anyhow::{bail, Context, Result};
   use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
   use tokio::net::TcpStream;
-
-  lazy_static! {}
 
   const CONTROL_URL: &str = "127.0.0.1:9051";
 
@@ -41,7 +38,7 @@ mod tor {
 
     while reader.read_line(&mut response).await? > 0 {
       if !status.iter().any(|status| response.contains(status)) {
-        bail!("Unexpected response: {} vs {:?}", response, status);
+        bail!("Unexpected Tor response: {} vs {:?}", response, status);
       }
     }
 
@@ -53,10 +50,10 @@ mod tor {
 async fn main() -> Result<()> {
   env_logger::init();
 
-  let proxy = "socks5://127.0.0.1:9050";
   let url = "https://advrider.com/f/threads/thinwater-escapades.1502022/page-[1-40]";
-  let dump_path = "data/dump.txt";
+  let proxy = "socks5://127.0.0.1:9050";
   let rotate_proxy_every = 10;
+
   let counter = AtomicUsize::new(0);
   let start = Instant::now();
   let mut config = Configuration::new();
@@ -69,20 +66,7 @@ async fn main() -> Result<()> {
 
   let mut website = Website::new(url);
   let website = website.with_config(config.clone()).with_caching(true);
-  let mut channel = website.subscribe(16).unwrap();
-
-  log::info!("Reset {}", dump_path);
-  tokio::fs::OpenOptions::new()
-    .write(true)
-    .create(true)
-    .open(dump_path)
-    .await
-    .context("Failed to open file")
-    .unwrap()
-    .set_len(0)
-    .await
-    .context("Failed to truncate file")
-    .unwrap();
+  let mut channel = website.subscribe(5).unwrap();
 
   tokio::spawn(async move {
     while let Ok(res) = channel.recv().await {
@@ -92,13 +76,15 @@ async fn main() -> Result<()> {
       let markdown = from_read(html_bytes, usize::MAX);
       let markdown_bytes = markdown.as_bytes();
       let url = res.get_url();
+      let page = url.split("/").last().unwrap().split("-").last().unwrap();
 
-      log::info!("[{}] Received {} bytes from {}", count, markdown_bytes.len(), url);
+      log::info!("[{}] Received {} bytes from page {}", count, markdown_bytes.len(), page);
 
+      let output_path = format!("data/pages/{}.md", page);
       tokio::fs::OpenOptions::new()
-        .append(true)
+        .write(true)
         .create(true)
-        .open(dump_path)
+        .open(output_path.clone())
         .await
         .context("Failed to open file")
         .unwrap()
@@ -106,6 +92,8 @@ async fn main() -> Result<()> {
         .await
         .context("Failed to write to file")
         .unwrap();
+
+      log::info!("[{}] Wrote {} bytes to {}", count, markdown_bytes.len(), output_path);
 
       if count % rotate_proxy_every == 0 {
         log::warn!("[{}] Resetting Tor proxy connection", count);
