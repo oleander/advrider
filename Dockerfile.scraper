@@ -1,4 +1,6 @@
-FROM rustlang/rust:nightly-bookworm AS builder
+FROM rustlang/rust:nightly-bookworm
+
+ENV PROXY_URL socks5://127.0.0.0.1:9050
 
 ENV CARGO_TARGET_DIR=/cache \
     PATH=/root/.cargo/bin:$PATH \
@@ -7,12 +9,17 @@ ENV CARGO_TARGET_DIR=/cache \
 WORKDIR /rust
 
 RUN git clone https://github.com/trouchet/rust-hello.git .
-COPY Cargo.* .
-RUN cargo fetch
-RUN cargo build
-RUN rm -rf /rust
+RUN git clone https://github.com/oleander/advrider.git /tmp/advrider && \
+    cd /tmp/advrider && \
+    git reset --hard origin/main && \
+    cp Cargo.* /rust
+
+RUN cargo build --no-default-features
 
 WORKDIR /app
+
+RUN rm -rf /rust /tmp/advrider /rust/Cargo.toml /rust/Cargo.lock
+
 COPY . .
 RUN cargo build
 

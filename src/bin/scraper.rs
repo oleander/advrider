@@ -19,7 +19,7 @@ const REDIRECT_LIMIT: usize = 2;
 use warp::Filter;
 
 lazy_static::lazy_static! {
-  static ref PROXY_URL: String = env!("PROXY_URL").into();
+  static ref PROXY_URL: String = env!("PROXY_URL").to_string();
 }
 
 async fn run_health_check_server() {
