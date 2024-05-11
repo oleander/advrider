@@ -66,7 +66,7 @@ async fn main() -> Result<()> {
 
   let mut website = Website::new(url);
   let website = website.with_config(config.clone()).with_caching(true);
-  let mut channel = website.subscribe(5).unwrap();
+  let mut channel = website.subscribe(rotate_proxy_every).unwrap();
 
   tokio::spawn(async move {
     while let Ok(res) = channel.recv().await {
@@ -78,7 +78,7 @@ async fn main() -> Result<()> {
       let url = res.get_url();
       let page = url.split("/").last().unwrap().split("-").last().unwrap();
 
-      log::info!("[{}] Received {} bytes from page {}", count, markdown_bytes.len(), page);
+      log::info!("[{}] Received {} bytes from page #{}", count, markdown_bytes.len(), page);
 
       let output_path = format!("data/pages/{}.md", page);
       tokio::fs::OpenOptions::new()
