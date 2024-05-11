@@ -1,14 +1,48 @@
-use html2text::from_read;
-use reqwest::header::HeaderMap;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 use std::vec;
-use reqwest::header;
 
+use anyhow::{Context, Result};
+use tokio::io::BufReader;
+use html2text::from_read;
+use reqwest::header::HeaderMap;
+use reqwest::header;
 use spider::configuration::Configuration;
 use spider::tokio;
 use spider::website::Website;
-use anyhow::Context;
-use anyhow::Result;
+
+mod tor {
+  use anyhow::bail;
+  use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use anyhow::{Context, Result};
+  use tokio::net::TcpStream;
+
+  async fn send(command: &str, stream: &mut TcpStream) -> Result<()> {
+    stream.write(command.as_bytes()).await?;
+    stream.write_all(b"\r\n").await?;
+    stream.flush().await.context("Failed to flush")
+  }
+
+  pub async fn refresh() -> Result<()> {
+    let mut stream = TcpStream::connect("127.0.0.1:9051").await?;
+    send("AUTHENTICATE \"\"", &mut stream).await?;
+    send("SIGNAL NEWNYM", &mut stream).await?;
+    send("QUIT", &mut stream).await?;
+
+    let expected = vec!["250 OK", "250 OK", "250 closing connection"];
+
+    let mut reader = BufReader::new(&mut stream);
+    let mut response = String::new();
+
+    while reader.read_line(&mut response).await? > 0 {
+      if !expected.iter().any(|e| response.contains(e)) {
+        bail!("Unexpected response: {}", response);
+      }
+    }
+
+    Ok(())
+  }
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -30,6 +64,22 @@ async fn main() -> Result<()> {
     .push("https://github.com/oleander".into());
 
   let website = website.with_config(config.clone()).with_caching(true);
+  let mut rx2 = website.subscribe(16).unwrap();
+  let counter = AtomicUsize::new(0);
+
+  tokio::spawn(async move {
+    while let Ok(res) = rx2.recv().await {
+      let count = counter.load(Ordering::SeqCst);
+      counter.fetch_add(1, Ordering::SeqCst);
+
+      if count % 10 != 0 || count == 0 {
+        log::info!("Count: {}", count);
+        continue;
+      }
+
+      tor::refresh().await;
+    }
+  });
 
   let start = Instant::now();
   website.scrape().await;
@@ -42,12 +92,12 @@ async fn main() -> Result<()> {
   };
 
   let body = website
-  .get_pages()
-  .context("No web pages received")?
-  .iter()
-  .map(|page| from_read(page.get_html().as_bytes(), usize::MAX))
-  .collect::<Vec<String>>()
-  .join("\n");
+    .get_pages()
+    .context("No web pages received")?
+    .iter()
+    .map(|page| from_read(page.get_html().as_bytes(), usize::MAX))
+    .collect::<Vec<String>>()
+    .join("\n");
 
   log::info!("Writing to file data/dump.txt");
   std::fs::write("data/dump.txt", body).context("Failed to write to file")?;

@@ -7,7 +7,7 @@ edition = "2021"
 name = "advrider"
 
 [dependencies]
-spider = { version = "1.93.28", features = ["glob", "budget", "socks", "cache", "cache_mem", "headers"] }
+spider = { version = "1.93.28", features = ["glob", "budget", "socks", "cache", "cache_mem", "headers", "sync"] }
 # llm-chain-openai = { path = "/Users/linus/Code/llm-chain/crates/llm-chain-openai" }
 # llm-chain = { path = "/Users/linus/Code/llm-chain/crates/llm-chain" }
 
