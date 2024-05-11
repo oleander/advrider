@@ -67,7 +67,13 @@ struct Opt {
 
   // cache
   #[structopt(long, help = "Enable caching")]
-  cache: bool
+  cache: bool,
+
+  // print only urls
+  #[structopt(long, help = "Print only URLs, do not save")]
+  only_print_urls: bool
+  // set output dir
+  // limit number of pages
 }
 
 #[tokio::main(flavor = "multi_thread")]
@@ -115,6 +121,10 @@ async fn main() -> Result<()> {
   let website = website.with_config(config.clone()).with_caching(opt.cache);
   let mut channel = website.subscribe(rotate_proxy_every).unwrap();
 
+  if opt.only_print_urls {
+    log::warn!("Will only print URLs, not save to disk");
+  }
+
   refresh_all_proxies(opt.controllers.clone()).await;
 
   tokio::spawn(async move {
@@ -128,9 +138,12 @@ async fn main() -> Result<()> {
       let page = url.split("/").last().unwrap().split("-").last().unwrap();
       let output_path = format!("data/pages/{}.md", page);
 
+
       log::info!("[{}] URL: {}", count, url);
 
-      if markdown_bytes.len() == 0 {
+      if opt.only_print_urls {
+        continue;
+      } else if markdown_bytes.len() == 0 {
         log::warn!("[{}] Skipping empty page #{}", count, page);
         log::warn!("[{}] Will rotate Tor proxy", count);
         refresh_all_proxies(opt.controllers.clone()).await;
