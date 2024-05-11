@@ -116,7 +116,6 @@ impl Authenticated {
   }
 
   pub async fn send(&mut self, command: &str, expected: &str) -> Result<()> {
-    log::debug!("Sending command '{}' and expecting '{}'", command, expected);
     self.control.send(command, expected).await
   }
 }
@@ -138,7 +137,6 @@ impl Command {
   }
 
   pub async fn send(&mut self, command: &str, expected: &str) -> Result<()> {
-    log::debug!("Sending command '{}' and expecting '{}'", command, expected);
     self.control.send(command, expected).await
   }
 }
