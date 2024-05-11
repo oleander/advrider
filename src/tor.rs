@@ -27,6 +27,8 @@ impl Control {
   }
 
   pub async fn send(&mut self, command: &str, expected: &str) -> Result<()> {
+    log::debug!("Sending command '{}' and expecting '{}'", command, expected);
+
     self.stream.write_all(command.as_bytes()).await?;
     self.stream.write_all(b"\n").await?;
     self.stream.flush().await?;
@@ -56,7 +58,6 @@ pub trait Shared {
 #[async_trait]
 impl Shared for Authenticated {
   async fn send(&mut self, command: &str, expected: &str) -> Result<()> {
-    log::debug!("Sending command '{}' and expecting '{}'", command, expected);
     self.control().send(command, expected).await
   }
 
@@ -68,7 +69,6 @@ impl Shared for Authenticated {
 #[async_trait]
 impl Shared for Command {
   async fn send(&mut self, command: &str, expected: &str) -> Result<()> {
-    log::debug!("Sending command '{}' and expecting '{}'", command, expected);
     self.control().send(command, expected).await
   }
 
@@ -103,14 +103,10 @@ impl Authenticated {
   }
 
   pub async fn wait_for_ready(&mut self) -> Result<()> {
-    log::info!("Waiting for Tor to be ready ...");
-    while let Err(err) = self.liveness().await {
-      log::warn!("Tor is not ready yet: {}, wait ...", err);
+    while self.liveness().await.is_err() {
       sleep(Duration::from_secs(1)).await;
-      log::info!("Checking Tor status again ...");
     }
 
-    log::info!("Tor is ready!");
     Ok(())
   }
 
