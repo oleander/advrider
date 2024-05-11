@@ -10,6 +10,7 @@ use reqwest::header;
 use spider::configuration::Configuration;
 use spider::tokio;
 use spider::website::Website;
+use tokio::io::AsyncWriteExt;
 
 mod tor {
   use lazy_static::lazy_static;
@@ -39,9 +40,8 @@ mod tor {
     let mut response = String::new();
 
     while reader.read_line(&mut response).await? > 0 {
-      log::info!("Response: {}", response.trim());
       if !status.iter().any(|status| response.contains(status)) {
-        bail!("Unexpected response: {}", response);
+        bail!("Unexpected response: {} vs {:?}", response, status);
       }
     }
 
@@ -62,41 +62,69 @@ async fn main() -> Result<()> {
 
   let mut website: Website = Website::new("https://advrider.com/f/threads/thinwater-escapades.1502022/page-[1-40]");
 
-  website
-    .configuration
-    .blacklist_url
-    .insert(Default::default())
-    .push("https://github.com/oleander".into());
-
   let website = website.with_config(config.clone()).with_caching(true);
   let mut rx2 = website.subscribe(16).unwrap();
   let counter = AtomicUsize::new(0);
 
+  log::info!("Reset data/dump.txt");
+  tokio::fs::OpenOptions::new()
+    .write(true)
+    .create(true)
+    .open("data/dump.txt")
+    .await
+    .context("Failed to open file")
+    .unwrap()
+    .set_len(0)
+    .await
+    .context("Failed to truncate file")
+    .unwrap();
+
   tokio::spawn(async move {
     while let Ok(res) = rx2.recv().await {
       let count = counter.fetch_add(1, Ordering::SeqCst);
+      let html = res.get_html();
+      let html_bytes = html.as_bytes();
+      let markdown = from_read(html_bytes, usize::MAX);
+      let markdown_bytes = markdown.as_bytes();
+      let url = res.get_url();
+
+      log::info!("[{}] Received {} bytes from {}", count, markdown_bytes.len(), url);
+
+      tokio::fs::OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open("data/dump.txt")
+        .await
+        .context("Failed to open file")
+        .unwrap()
+        .write_all(markdown_bytes)
+        .await
+        .context("Failed to write to file")
+        .unwrap();
 
       if count % 10 == 0 {
+        log::warn!("[{}] Resetting Tor proxy connection", count);
+
         match tor::refresh().await {
-          Ok(_) => log::info!("Tor refreshed successfully"),
-          Err(e) => log::error!("Failed to refresh Tor: {}", e)
+          Ok(_) => log::info!("[{}] Successfully refreshed Tor", count),
+          Err(e) => log::error!("[{}] Failed to refresh Tor: {}", count, e),
         }
 
-        log::info!("Current IP: {:?}", ip::get().await);
+        log::info!("[{}] Resetting IP address to {}", count, ip::get().await.unwrap());
       }
-
     }
   });
 
   let start = Instant::now();
-  website.scrape().await;
-  let duration = start.elapsed();
 
+  website.scrape().await;
+
+  let duration = start.elapsed();
   let links = website.get_links();
-  let Some(pages) = website.get_pages() else {
-    println!("No pages found");
-    return Ok(());
-  };
+
+  for link in links.iter() {
+    log::info!("{}", link.as_ref());
+  }
 
   let body = website
     .get_pages()
@@ -108,11 +136,9 @@ async fn main() -> Result<()> {
 
   log::info!("Writing to file data/dump.txt");
   std::fs::write("data/dump.txt", body).context("Failed to write to file")?;
-  for link in links {
-    println!("- {:?}", link.as_ref());
-  }
 
-  println!("Time elapsed in website.crawl() is: {:?} for total pages: {:?}", duration, links.len());
+  log::info!("Time passed: {:?}", duration);
+  log::info!("Total pages: {:?}", links.len());
 
   Ok(())
 }
