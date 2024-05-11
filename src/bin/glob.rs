@@ -3,6 +3,7 @@ use std::time::Instant;
 
 use async_std::path::PathBuf;
 use env_logger::Env;
+use structopt::StructOpt;
 use spider::configuration::Configuration;
 use futures::future::join_all;
 use anyhow::{bail, Context, Result};
@@ -13,8 +14,8 @@ use html2text::from_read;
 use spider::tokio;
 
 mod tor {
-  use anyhow::{bail, Context, Result};
   use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+  use anyhow::{bail, Context, Result};
   use tokio::net::TcpStream;
 
   async fn send(command: &str, stream: &mut TcpStream) -> Result<()> {
@@ -45,8 +46,6 @@ mod tor {
     Ok(())
   }
 }
-
-use structopt::StructOpt;
 
 /// Command-line options defined using StructOpt
 #[derive(StructOpt, Debug)]
@@ -131,14 +130,14 @@ async fn main() -> Result<()> {
   let start = Instant::now();
 
   let config = config
-    .with_depth(1)
-    .with_proxies(proxies)
-    .with_caching(opt.cache)
     .with_respect_robots_txt(true)
-    .with_delay(50);
+    .with_caching(opt.cache)
+    .with_proxies(proxies)
+    .with_delay(50)
+    .with_depth(1);
 
   let mut website = Website::new(&url);
-  let website = website.with_config(config.clone()).with_caching(opt.cache);
+  let website = website.with_config(config.clone());
   let mut channel = website.subscribe(16).unwrap();
   let mut guard = website.subscribe_guard().unwrap();
   let queue = website.queue(opt.proxies.len()).unwrap();
