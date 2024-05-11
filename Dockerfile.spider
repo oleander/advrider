@@ -1,14 +1,8 @@
-FROM rustlang/rust:nightly-bookworm
+FROM binstall
 
-ENV SPIDER_WORKER_PORT 3030
-ENV SPIDER_WORKER_SCRAPER_PORT 3031
+RUN cargo install spider_worker --features=scrape
 
-RUN cargo install spider_worker
+# HEALTHCHECK CMD curl -f http://localhost:3030 || exit 1
 
-EXPOSE 3030
-EXPOSE 3031
-
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:3030 || exit 1
-
-CMD spider_worker
+ENV RUST_LOG debug
+CMD $CARGO_HOME/bin/spider_worker

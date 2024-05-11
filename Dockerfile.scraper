@@ -1,35 +1,26 @@
-FROM rustlang/rust:nightly-bookworm
+FROM binstall
 
-ENV PROXY_URL socks5://127.0.0.0.1:9050
+ARG PROXY_URL
+ENV PROXY_URL $PROXY_URL
 
-ENV CARGO_TARGET_DIR=/cache \
-    PATH=/root/.cargo/bin:$PATH \
-    USER=root
+
 
 WORKDIR /rust
-
-RUN git clone https://github.com/trouchet/rust-hello.git .
-RUN git clone https://github.com/oleander/advrider.git /tmp/advrider && \
-    cd /tmp/advrider && \
-    git reset --hard baabe2d && \
-    cp Cargo.* /rust && \
-    cargo build --no-default-features --bin scraper && \
-    rm -rf /tmp/advride
+RUN --mount=type=cache,target=$SCCACHE_DIR \
+    git clone https://github.com/trouchet/rust-hello.git . \
+    && git clone https://github.com/oleander/advrider.git repo \
+    && cp repo/Cargo.* . \
+    && rm -rf repo \
+    && cargo build \
+    && rm -rf /rust
 
 WORKDIR /app
-
-RUN rm -rf /rust /tmp/advrider /rust/Cargo.toml /rust/Cargo.lock
-
 COPY . .
-RUN cargo build --no-default-features --bin scraper
 
-RUN cargo install sccache
-# install reddis
-RUN apt-get update && apt-get install -y redis-server
-ENV RUSTC_WRAPPER /root/.cargo/bin/sccache
+RUN --mount=type=cache,target=$SCCACHE_DIR cargo build --bin scraper
 
-EXPOSE 4040
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:4040/health || exit 1
+# EXPOSE 4040
 
-CMD ["cargo", "run", "--bin", "scraper"]
+# HEALTHCHECK CMD curl -f http://localhost:4040/health || exit 1
+
+CMD cargo run --bin scraper

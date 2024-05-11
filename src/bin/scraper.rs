@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use spider::configuration::{Configuration, GPTConfigs, WaitForIdleNetwork};
 use reqwest::header::{self, HeaderMap};
-use spider::moka::future::Cache;
+// use spider::moka::future::Cache;
 use anyhow::{Context, Result};
 use spider::website::Website;
 use html2text::from_read;
@@ -16,16 +16,16 @@ const OPENAI_MAX_TOKEN: u16 = 512;
 const RESPECT_ROBOT: bool = true;
 const REDIRECT_LIMIT: usize = 2;
 
-use warp::Filter;
+// use warp::Filter;
 
 lazy_static::lazy_static! {
   static ref PROXY_URL: String = env!("PROXY_URL").to_string();
 }
 
-async fn run_health_check_server() {
-  let health_route = warp::path!("health").map(|| warp::reply::json(&"OK"));
-  warp::serve(health_route).run(([127, 0, 0, 1], 4040)).await;
-}
+// async fn run_health_check_server() {
+//   let health_route = warp::path!("health").map(|| warp::reply::json(&"OK"));
+//   warp::serve(health_route).run(([127, 0, 0, 1], 4040)).await;
+// }
 
 async fn perform_main_tasks() -> Result<()> {
   info!("Fetching URL, hold on...");
@@ -45,7 +45,7 @@ async fn main() -> Result<()> {
   env_logger::init();
 
   tokio::select! {
-    _ = run_health_check_server() => {},
+    // _ = run_health_check_server() => {},
     _ = perform_main_tasks() => {},
   }
 
@@ -55,30 +55,38 @@ async fn main() -> Result<()> {
 async fn fetch(url: &str) -> Result<String> {
   log::info!("Starting ...");
 
-  let cache = Cache::builder()
-    .time_to_live(Duration::from_secs(30 * 60))
-    .time_to_idle(Duration::from_secs(5 * 60))
-    .max_capacity(100_000)
-    .build();
+  // let cache = Cache::builder()
+  //   .time_to_live(Duration::from_secs(30 * 60))
+  //   .time_to_idle(Duration::from_secs(5 * 60))
+  //   .max_capacity(100_000)
+  //   .build();
 
   let network_config = Some(WaitForIdleNetwork::new(Some(Duration::from_micros(100))));
   let system_path = "prompts/summarize.md";
   let system_prompt = tokio::fs::read_to_string(system_path).await?;
 
-  let openai_config =
-    GPTConfigs::new_multi_cache(OPENAI_MODEL, vec![&system_prompt], OPENAI_MAX_TOKEN, Some(cache)).into();
+  // let openai_config =
+  // GPTConfigs::new_multi_cache(OPENAI_MODEL, vec![&system_prompt], OPENAI_MAX_TOKEN, Some(cache)).into();
 
-  let proxies = vec![PROXY_URL.clone()];
+  let proxies = vec!["socks5://127.0.0.1:9050".to_string()];
 
   info!("Building request object to fetch website ...");
-  let mut website = Website::new(url)
-    .with_wait_for_idle_network(network_config)
+  let mut website = Website::new(url);
+
+  website
+    .configuration
+    .blacklist_url
+    .insert(Default::default())
+    .push("https://www.advrider.com".into());
+
+  // .with_wait_for_idle_network(network_config)
+  website = website
     .with_proxies(proxies.into())
-    .with_openai(openai_config)
+    // .with_openai(openai_config)
     .with_headers(header()?)
     .with_redirect_limit(1)
-    .with_config(config())
-    .with_caching(true)
+    // .with_config(config())
+    .with_caching(false)
     .with_tld(false)
     .with_limit(2)
     .build()

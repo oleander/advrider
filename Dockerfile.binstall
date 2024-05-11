@@ -1,0 +1,18 @@
+FROM rustlang/rust:nightly-bookworm
+
+ARG GITHUB_TOKEN
+
+# ENV CARGO_HOME /cargo
+ENV SCCACHE_DIR /cache/sccache
+ENV GITHUB_TOKEN $GITHUB_TOKEN
+ENV CARGO_TARGET_DIR /cache/cargo
+ENV BINSTALL_STRATEGIES quick-install,compile
+
+RUN cargo install cargo-binstall
+RUN cargo binstall sccache -y
+
+ENV RUSTC_WRAPPER $CARGO_HOME/bin/sccache
+
+RUN mkdir -p /cache/sccache /cache/cargo
+
+RUN $RUSTC_WRAPPER --start-server

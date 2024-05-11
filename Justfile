@@ -20,4 +20,5 @@ run: build
   docker compose up --remove-orphans
 
 build:
+  # docker build -f Dockerfile.binstall . -t binstall --build-arg="GITHUB_TOKEN=$GITHUB_TOKEN"
   docker compose build

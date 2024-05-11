@@ -5,43 +5,35 @@ services:
     ports:
       - 0.0.0.0:9050:9050
 
-  spider:
-    depends_on:
-      - proxy
-    build:
-      context: .
-      dockerfile: Dockerfile.spider
-    ports:
-      - 0.0.0.0:3030:3030
-      - 0.0.0.0:3031:3031
-    environment:
-      GITHUB_TOKEN: ${GITHUB_TOKEN}
-    env_file: .env
-    restart: on-failure
+  # spider:
+  #   platform: linux/arm64
+  #   depends_on:
+  #     - proxy
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.spider
+  #   ports:
+  #     - 0.0.0.0:3031:3031
+  #     - 0.0.0.0:3030:3030
+  #   environment:
+  #     GITHUB_TOKEN: ${GITHUB_TOKEN}
+  #   env_file: .env
+  #   restart: on-failure
 
   scraper:
     platform: linux/arm64
     depends_on:
       - proxy
-      - spider
-      - redis
     build:
       context: .
       dockerfile: Dockerfile.scraper
+      args:
+        PROXY_URL: socks5://127.0.0.1:9050
     volumes:
       - ./data:/app/data
+      - ./cache:/cache
+    # ports:
+    #   - 0.0.0.0:3030:3030
     env_file: .env
-    environment:
-      PROXY_URL: socks5://proxy:9050
-      GITHUB_TOKEN: ${GITHUB_TOKEN}
-      SCCACHE_REDIS: redis://redis:6379
     restart: on-failure
 
-  redis:
-    image: redis
-    command: redis-server --save 60 1 --loglevel warning
-    volumes:
-      - ./data/redis:/data
-    ports:
-      - 0.0.0.0:6379:6379
-    restart: unless-stopped
