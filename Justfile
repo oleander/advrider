@@ -31,4 +31,5 @@ cli:
   --url https://advrider.com/f/threads/the-toolkit-thread.262998/page-\[1-\10] \
   --controllers 127.0.0.1:9051 127.0.0.1:8051 127.0.0.1:7051 \
   --rotate-proxy-every 3 \
+  --page-limit 5 \
   --verbose

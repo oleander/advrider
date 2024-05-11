@@ -77,7 +77,7 @@ struct Opt {
   only_print_urls: bool,
 
   // set output dir
-  #[structopt(long, help = "Set output directory", default_value = ".")]
+  #[structopt(long, help = "Set output directory", default_value = "/tmp")]
   output_dir: PathBuf,
 
   // limit number of pages
@@ -133,7 +133,6 @@ async fn main() -> Result<()> {
     .with_depth(1)
     .with_proxies(proxies)
     .with_caching(opt.cache)
-    .with_limit(opt.page_limit)
     .with_respect_robots_txt(true)
     .with_delay(100);
 
@@ -158,7 +157,6 @@ async fn main() -> Result<()> {
       let markdown_bytes = markdown.as_bytes();
       let url = res.get_url();
       let page = url.split("/").last().unwrap().split("-").last().unwrap();
-
 
       let parsed_url = Url::parse(url).unwrap();
       let _size = queue.send(parsed_url.into()).unwrap();
@@ -197,12 +195,14 @@ async fn main() -> Result<()> {
 
       let end_page = format!("Page {} of {} ", page, page);
       if markdown.contains(&end_page) {
-        log::warn!("Reached the end of the thread: {} of {}", page, page);
-        std::process::exit(0);
+        return log::warn!("Reached the end of the thread: {} of {}", page, page);
       } else if count % rotate_proxy_every == 0 && count > 0 {
         log::warn!("[{}] Resetting Tor proxy connection", count);
-
         refresh_all_proxies(opt.controllers.clone()).await;
+      }
+
+      if count >= opt.page_limit as usize {
+        return log::warn!("Reached page limit: {}", opt.page_limit);
       }
     }
   });
