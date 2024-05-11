@@ -10,7 +10,7 @@ use log::{error, info};
 use spider::tokio;
 
 // const USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 OPR/109.0.0.0";
-const URL: &str = "https://www.advrider.com/f/threads/offroad-riding-in-germany.1349208/page-[1-]";
+const URL: &str = "https://www.advrider.com/f/threads/offroad-riding-in-germany.1349208/page-[1-5]";
 const OPENAI_MODEL: &str = "gpt-3.5-turbo";
 const OPENAI_MAX_TOKEN: u16 = 512;
 const RESPECT_ROBOT: bool = true;
@@ -76,11 +76,11 @@ async fn fetch(url: &str) -> Result<String> {
     .with_proxies(proxies.into())
     .with_openai(openai_config)
     .with_headers(header()?)
-    .with_redirect_limit(2)
+    .with_redirect_limit(1)
     .with_config(config())
     .with_caching(true)
     .with_tld(false)
-    .with_limit(5)
+    .with_limit(2)
     .build()
     .context("Could not build webpage")?;
 

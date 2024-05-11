@@ -11,17 +11,22 @@ WORKDIR /rust
 RUN git clone https://github.com/trouchet/rust-hello.git .
 RUN git clone https://github.com/oleander/advrider.git /tmp/advrider && \
     cd /tmp/advrider && \
-    git reset --hard origin/main && \
-    cp Cargo.* /rust
-
-RUN cargo build --no-default-features
+    git reset --hard baabe2d && \
+    cp Cargo.* /rust && \
+    cargo build --no-default-features --bin scraper && \
+    rm -rf /tmp/advride
 
 WORKDIR /app
 
 RUN rm -rf /rust /tmp/advrider /rust/Cargo.toml /rust/Cargo.lock
 
 COPY . .
-RUN cargo build --no-default-features
+RUN cargo build --no-default-features --bin scraper
+
+RUN cargo install sccache
+# install reddis
+RUN apt-get update && apt-get install -y redis-server
+ENV RUSTC_WRAPPER /root/.cargo/bin/sccache
 
 EXPOSE 4040
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \

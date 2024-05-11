@@ -20,9 +20,11 @@ services:
     restart: on-failure
 
   scraper:
+    platform: linux/arm64
     depends_on:
       - proxy
       - spider
+      - redis
     build:
       context: .
       dockerfile: Dockerfile.scraper
@@ -32,4 +34,14 @@ services:
     environment:
       PROXY_URL: socks5://proxy:9050
       GITHUB_TOKEN: ${GITHUB_TOKEN}
+      SCCACHE_REDIS: redis://redis:6379
     restart: on-failure
+
+  redis:
+    image: redis
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - ./data/redis:/data
+    ports:
+      - 0.0.0.0:6379:6379
+    restart: unless-stopped
