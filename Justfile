@@ -26,10 +26,10 @@ build:
   docker compose build
 
 cli:
-  cargo run --bin glob -- \
+  RUST_LOG=info cargo run --features spider/regex  --bin glob -- \
   --proxies socks5://127.0.0.1:9050 socks5://127.0.0.1:8050 socks5://127.0.0.1:7050 \
-  --url https://advrider.com/f/threads/the-toolkit-thread.262998/page-\[1-\10] \
+  --url "https://advrider.com/f/forums/racing.25" \
   --controllers 127.0.0.1:9051 127.0.0.1:8051 127.0.0.1:7051 \
-  --rotate-proxy-every 3 \
-  --page-limit 5 \
+  --rotate-proxy-every 30 \
+  --page-limit 400 \
   --verbose

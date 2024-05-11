@@ -3,6 +3,8 @@ use std::time::Instant;
 
 use async_std::path::PathBuf;
 use env_logger::Env;
+use spider::compact_str::CompactString;
+use spider::hashbrown::HashMap;
 use structopt::StructOpt;
 use spider::configuration::Configuration;
 use futures::future::join_all;
@@ -135,18 +137,59 @@ async fn main() -> Result<()> {
   let counter = AtomicUsize::new(0);
   let start = Instant::now();
 
+  // pub fn get_blacklist(&self) -> Box<regex::RegexSet> {
+  //     match &self.blacklist_url {
+  //         Some(blacklist) => match regex::RegexSet::new(&**blacklist) {
+  //             Ok(s) => Box::new(s),
+  //             _ => Default::default(),
+  //         },
+  //         _ => Default::default(),
+  //     }
+  // }
+  //   https://advrider.com/f/{forums/racing.25,threads/*}{/,/page-[0-9]*, }
+
+  // https://advrider.com/f/forums/racing.25/
+  // https://advrider.com/f/forums/racing.25/page-4
+  // https://advrider.com/f/forums/racing.25/page-5/
+  // https://advrider.com/f/threads/motogp-francais-spoileurs.1733155/
+  // https://advrider.com/f/threads/motogp-francais-spoileurs.1733155/page-281
+  // https://advrider.com/f/threads/motogp-francais-spoileurs.1733155/page-2/
+
+  // let set = regex::RegexSet::new(&[
+  //   r"https://advrider\.com/f/forums/racing\.25",
+  //   r"https://advrider\.com/f/forums/racing\.25/page-\d+",
+  //   r"https://advrider\.com/f/threads/[^/]+",
+  //   r"https://advrider\.com/f/threads/[^/]+/page-\d+"
+  // ]).unwrap();
+
+  // let one_pattern = "^(?!https:\/\/advrider\.com\/f\/(forums\/racing\.25|threads\/[^\/]+)\/(page-\d+\/?)?$).*
+  // "
+
+  let patterns = vec![
+    "^/f/forums/racing\\.25/$".into(),
+    "^/f/forums/racing\\.25/page-\\d+/?$".into(),
+    "^/f/threads/[^/]+/$".into(),
+    "^/f/threads/[^/]+/page-\\d+/?$".into(),
+  ]
+  .into();
+
+  let budget = HashMap::from([("/f/forums/racing.25*", 5), ("/f/threads/*/page-*", 10), ("/f/threads/*", 2)]).into();
+
   let config = config
     .with_respect_robots_txt(true)
     .with_caching(opt.cache)
     .with_proxies(proxies)
-    .with_delay(50)
-    .with_depth(1);
+    .with_budget(budget)
+    .with_blacklist_url(patterns);
+
+  // .with_delay(50)
+  // .with_depth(2);
 
   let mut website = Website::new(&url);
   let website = website.with_config(config.clone());
   let mut channel = website.subscribe(16).unwrap();
-  let mut guard = website.subscribe_guard().unwrap();
-  let queue = website.queue(opt.proxies.len()).unwrap();
+  // let mut guard = website.subscribe_guard().unwrap();
+  // let queue = website.queue(opt.proxies.len()).unwrap();
 
   if opt.only_print_urls {
     log::warn!("Will only print URLs, not save to disk");
@@ -164,10 +207,10 @@ async fn main() -> Result<()> {
       let url = res.get_url();
       let page = url.split("/").last().unwrap().split("-").last().unwrap();
 
-      let parsed_url = Url::parse(url).unwrap();
-      let _size = queue.send(parsed_url.into()).unwrap();
+      // let parsed_url = Url::parse(url).unwrap();
+      // let _size = queue.send(parsed_url.into()).unwrap();
 
-      guard.inc();
+      // guard.inc();
 
       log::info!("[{}] URL: {}", count, url);
 
@@ -214,7 +257,7 @@ async fn main() -> Result<()> {
   });
 
   log::info!("Scraping website, hold on...");
-  website.scrape().await;
+  website.crawl().await;
 
   log::info!("URL: {}", website.get_links().len());
 

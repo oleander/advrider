@@ -2022,15 +2022,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8478577c03552c21db0e2724ffb8986a5ce7af88107e6be5d2ee6e158c12800"
 
 [[package]]
-name = "itertools"
-version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba291022dbbd398a455acf126c1e341954079855bc60dfdda641363bd6922569"
-dependencies = [
- "either",
-]
-
-[[package]]
 name = "itoa"
 version = "1.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3498,9 +3489,9 @@ dependencies = [
 
 [[package]]
 name = "spider"
-version = "1.94.2"
+version = "1.93.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c3d6965551b2e721a61ba2891abf05fedc8a7324b2e3bad016db201c0f3a9f4"
+checksum = "c56ae47d9d10945c3d565851e71c15d6af08177bcf8b23a9bdf40d94d3fe4c1d"
 dependencies = [
  "ahash",
  "bytes",
@@ -3511,7 +3502,6 @@ dependencies = [
  "fast_html5ever",
  "hashbrown",
  "http-cache-reqwest",
- "itertools",
  "lazy_static",
  "log",
  "num_cpus",

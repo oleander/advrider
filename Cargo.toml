@@ -7,7 +7,7 @@ edition = "2021"
 name = "advrider"
 
 [dependencies]
-spider = { version = "1.93.28", features = ["glob", "budget", "socks", "cache", "cache_mem", "headers", "sync", "ua_generator"], default-features = true }
+spider = { version = "=1.93.28", features = ["socks", "cache", "cache_mem", "ua_generator",  "budget", "regex"] }
 
 llm-chain-openai = "0.13.0"
 llm-chain = "*"
