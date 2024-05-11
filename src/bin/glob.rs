@@ -2,7 +2,6 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 use std::vec;
 
-use advrider::ip;
 use anyhow::{Context, Result};
 use html2text::from_read;
 use spider::configuration::Configuration;
@@ -11,6 +10,8 @@ use spider::website::Website;
 use tokio::io::AsyncWriteExt;
 
 mod tor {
+  use std::time::Duration;
+
   use anyhow::{bail, Context, Result};
   use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
   use tokio::net::TcpStream;
@@ -85,6 +86,13 @@ async fn main() -> Result<()> {
 
       if markdown_bytes.len() == 0 {
         log::warn!("[{}] Skipping empty page #{}", count, page);
+        log::warn!("[{}] Will rotate Tor proxy", count);
+
+        match tor::refresh().await {
+          Ok(_) => log::info!("[{}] Successfully refreshed Tor", count),
+          Err(e) => log::error!("[{}] Failed to refresh Tor: {}", count, e)
+        }
+
         continue;
       }
 
@@ -104,7 +112,11 @@ async fn main() -> Result<()> {
 
       log::info!("[{}] Wrote {} bytes to {}", count, markdown_bytes.len(), output_path);
 
-      if count % rotate_proxy_every == 0 && count > 0 {
+      let end_page = format!("Page {} of {} ", page, page);
+      if markdown.contains(&end_page) {
+        log::warn!("Reached the end of the thread: {} of {}", page, page);
+        break;
+      } else if count % rotate_proxy_every == 0 && count > 0 {
         log::warn!("[{}] Resetting Tor proxy connection", count);
 
         match tor::refresh().await {
