@@ -2,20 +2,17 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 use std::vec;
 
-use anyhow::{Context, Result};
-use html2text::from_read;
 use spider::configuration::Configuration;
-use spider::tokio;
+use anyhow::{Context, Result};
 use spider::website::Website;
 use tokio::io::AsyncWriteExt;
+use html2text::from_read;
+use spider::tokio;
 
 mod tor {
-  use std::time::Duration;
-
   use anyhow::{bail, Context, Result};
   use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
   use tokio::net::TcpStream;
-  use tokio::time::sleep;
 
   const CONTROL_URL: &str = "127.0.0.1:9051";
 
@@ -42,9 +39,6 @@ mod tor {
       }
     }
 
-    // Ensure the connection is closed
-    // sleep(Duration::from_millis(100)).await;
-
     Ok(())
   }
 }
@@ -53,7 +47,7 @@ mod tor {
 async fn main() -> Result<()> {
   env_logger::init();
 
-  let url = "https://advrider.com/f/threads/thinwater-escapades.1502022/page-[1-300]";
+  let url = "https://advrider.com/f/threads/sena-s20-experience.993790/page-[1-100]";
   let proxy = "socks5://127.0.0.1:9050";
   let rotate_proxy_every = 10;
 
@@ -84,6 +78,8 @@ async fn main() -> Result<()> {
       let page = url.split("/").last().unwrap().split("-").last().unwrap();
       let output_path = format!("data/pages/{}.md", page);
 
+      log::info!("[{}] URL: {}", count, url);
+
       if markdown_bytes.len() == 0 {
         log::warn!("[{}] Skipping empty page #{}", count, page);
         log::warn!("[{}] Will rotate Tor proxy", count);
@@ -96,7 +92,7 @@ async fn main() -> Result<()> {
         continue;
       }
 
-      log::info!("[{}] Received {} bytes from page #{}", count, markdown_bytes.len(), page);
+      log::info!("[{}] Received {} bytes from page #{} ({})", count, markdown_bytes.len(), page, url);
 
       tokio::fs::OpenOptions::new()
         .write(true)
@@ -115,7 +111,7 @@ async fn main() -> Result<()> {
       let end_page = format!("Page {} of {} ", page, page);
       if markdown.contains(&end_page) {
         log::warn!("Reached the end of the thread: {} of {}", page, page);
-        break;
+        std::process::exit(0);
       } else if count % rotate_proxy_every == 0 && count > 0 {
         log::warn!("[{}] Resetting Tor proxy connection", count);
 
