@@ -3,7 +3,7 @@ use std::time::Instant;
 
 use async_std::path::PathBuf;
 use env_logger::Env;
-use spider::compact_str::CompactString;
+use reqwest::Url;
 use spider::hashbrown::HashMap;
 use structopt::StructOpt;
 use spider::configuration::Configuration;
@@ -11,7 +11,6 @@ use futures::future::join_all;
 use anyhow::{bail, Context, Result};
 use spider::website::Website;
 use tokio::io::AsyncWriteExt;
-use spider::url::Url;
 use html2text::from_read;
 use spider::tokio;
 
@@ -165,27 +164,37 @@ async fn main() -> Result<()> {
   // let one_pattern = "^(?!https:\/\/advrider\.com\/f\/(forums\/racing\.25|threads\/[^\/]+)\/(page-\d+\/?)?$).*
   // "
 
-  let patterns = vec![
-    "^/f/forums/racing\\.25/$".into(),
-    "^/f/forums/racing\\.25/page-\\d+/?$".into(),
-    "^/f/threads/[^/]+/$".into(),
-    "^/f/threads/[^/]+/page-\\d+/?$".into(),
-  ]
-  .into();
+  // let patterns = vec![
+  //   "^/f/members/.*".into(),
+  //   "^/f/posts/.*".into(),
+  // ]
+  // .into();
 
-  let budget = HashMap::from([("/f/forums/racing.25*", 5), ("/f/threads/*/page-*", 10), ("/f/threads/*", 2)]).into();
+  let budget: HashMap<&str, u32> = HashMap::from([
+    ("/f/forums/racing.25", 1),
+    ("/f/forums/racing.25/*", 1),
+    ("/f/threads/*/*", 1),
+    ("/f/threads/*/*/", 1),
+    ("/f/threads/*", 1)
+  ]);
 
   let config = config
     .with_respect_robots_txt(true)
     .with_caching(opt.cache)
     .with_proxies(proxies)
-    .with_budget(budget)
-    .with_blacklist_url(patterns);
+    .with_budget(budget.clone().into());
+  // .with_blacklist_url(patterns);
 
   // .with_delay(50)
   // .with_depth(2);
 
   let mut website = Website::new(&url);
+  // website
+  //   .configuration
+  //   .blacklist_url
+  //   .get_or_insert(Default::default())
+  //   .append(&mut vec!["^/f/members/.*".into(), "^/f/posts/.*".into()]);
+
   let website = website.with_config(config.clone());
   let mut channel = website.subscribe(16).unwrap();
   // let mut guard = website.subscribe_guard().unwrap();
@@ -206,6 +215,27 @@ async fn main() -> Result<()> {
       let markdown_bytes = markdown.as_bytes();
       let url = res.get_url();
       let page = url.split("/").last().unwrap().split("-").last().unwrap();
+
+      let purl = Url::parse(url).unwrap();
+      let path = purl.path().to_owned();
+      let include = budget
+        .iter()
+        .any(|(pattern, _)| glob::Pattern::new(pattern).unwrap().matches(&path));
+
+      if !include {
+        tokio::fs::OpenOptions::new()
+          .append(true)
+          .create(true)
+          .open("paths.txt")
+          .await
+          .context("Failed to open file")
+          .unwrap()
+          .write_all((path.clone() + "\n").as_bytes())
+          .await
+          .context("Failed to write to file")
+          .unwrap();
+        log::warn!("[{}] Skipping URL: {}", count, path);
+      }
 
       // let parsed_url = Url::parse(url).unwrap();
       // let _size = queue.send(parsed_url.into()).unwrap();

@@ -1,34 +1,47 @@
 use std::collections::HashMap;
+use colored::*;
 
 fn main() {
-    let mut budget = HashMap::from([
-        ("/f/forums/racing.25/*".to_string(), 5),
-        ("/f/threads/*/page-*".to_string(), 10),
-        ("/f/threads/*".to_string(), 2),
-        ("/f/*".to_string(), 1), // Default budget for unmatched paths
-    ]);
+  let budget = HashMap::from([
+    ("/f/forums/racing.25".to_string(), 5),
+    ("/f/forums/racing.25/*".to_string(), 5),
+    ("/f/threads/*/*".to_string(), 10),
+    ("/f/threads/*/*/".to_string(), 10),
+    ("/f/threads/*".to_string(), 2)
+  ]);
 
-    let test_urls = [
-        "/f/forums/racing.25/page-4",
-        "/f/threads/motogp-francais-spoileurs.1733155/page-281",
-        "/f/posts/50465159/help/",
-    ];
+  // /f/{forums,threads}/*{/,}*
+  let patterns = vec!["^/f/members".to_string(), "^/f/posts".to_string()];
 
-    for url in test_urls.iter() {
-        let is_within_budget = check_budget(url, &mut budget);
-        println!("URL is within budget ({}) for '{}': {}", is_within_budget, url, budget.get("/f/*").unwrap_or(&0));
+  let urls = [
+    ("/f/forums/racing.25/page-4", true, false),
+    ("/f/threads/motogp-francais-spoileurs.1733155/page-281", true, false),
+    ("/f/posts/50465159/help/", false, true),
+    ("/f/members/123", false, true),
+    ("/f/forums/racing.25/", true, false),
+    ("/f/forums/racing.25", true, false)
+  ];
+
+  for (url, include, exclude) in urls.iter() {
+    println!("URL: {}", url.cyan());
+    for pattern in patterns.iter() {
+      let hit = regex::Regex::new(pattern).unwrap().is_match(url);
+      let actual = *exclude == hit;
+      println!("\t[{}] Regex: {}", b(actual), pattern.yellow(),);
     }
+
+    for glob in budget.keys() {
+      let hit = glob::Pattern::new(glob).unwrap().matches(url);
+      let actual = *include == hit;
+      println!("\t[{}] Glob: {}", b(actual), glob.yellow());
+    }
+  }
 }
 
-fn check_budget(url: &str, budget: &mut HashMap<String, i32>) -> bool {
-    // Here we would have a more sophisticated matching system
-    let pattern = "/f/*"; // Simplified: This would be determined by matching patterns
-    budget.get_mut(pattern).map_or(false, |limit| {
-        if *limit > 0 {
-            *limit -= 1; // Decrement the budget
-            true
-        } else {
-            false
-        }
-    })
+fn b(v: bool) -> String {
+  if v {
+    "Yes".green().to_string()
+  } else {
+    "No".red().to_string()
+  }
 }
