@@ -22,7 +22,7 @@ name = "advrider"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "async-openai 0.20.0",
+ "async-openai 0.21.0",
  "async-std",
  "dotenv",
  "env_logger",
@@ -321,6 +321,31 @@ name = "async-openai"
 version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "11e97f9c5e0ee3260caee9700ba1bb61a6fdc34d2b6786a31e018c5de5198491"
+dependencies = [
+ "async-convert",
+ "backoff",
+ "base64 0.22.1",
+ "bytes",
+ "derive_builder 0.20.0",
+ "futures",
+ "rand 0.8.5",
+ "reqwest 0.12.4",
+ "reqwest-eventsource 0.6.0",
+ "secrecy",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tokio-stream",
+ "tokio-util",
+ "tracing",
+]
+
+[[package]]
+name = "async-openai"
+version = "0.21.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "007f03f7e27271451af57ced242d6adfa04204d1275a91ec0952bf441fd8d102"
 dependencies = [
  "async-convert",
  "backoff",
