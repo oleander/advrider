@@ -1,5 +1,4 @@
 use std::time::Duration;
-use core::future::AsyncDrop;
 
 use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
@@ -57,24 +56,20 @@ pub struct Command {
 
 impl Command {
   pub async fn new(address: &str, password: &str) -> Result<Self> {
-    let control = Control::new(address).await?;
-    let mut cmd = Self {
-      control,
+    Ok(Self {
+      control: Control::new(address).await?,
       password: password.to_string(),
       open: false
-    };
-    Ok(cmd)
+    })
   }
 
   pub async fn authenticate(mut self) -> Result<Self> {
-    log::info!("Authenticating with Tor ...");
     if self.open {
       return Ok(self);
     }
 
-    self
-      .send(&format!("AUTHENTICATE \"{}\"", self.password), "250 OK")
-      .await?;
+    let auth = format!("AUTHENTICATE \"{}\"", self.password);
+    self.send(&auth, "250 OK").await?;
     self.open = true;
     Ok(self)
   }
