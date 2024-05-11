@@ -49,7 +49,8 @@ impl Control {
 
 pub struct Command {
   control:  Control,
-  password: String
+  password: String,
+  open:     bool
 }
 
 impl Command {
@@ -57,18 +58,33 @@ impl Command {
     let control = Control::new(address).await?;
     let mut cmd = Self {
       control,
-      password: password.to_string()
+      password: password.to_string(),
+      open: false
     };
-    cmd.authenticate().await?;
+    cmd.wait_for_ready().await?;
     Ok(cmd)
   }
 
   pub async fn authenticate(&mut self) -> Result<()> {
-    self.send(&format!("AUTHENTICATE \"{}\"", self.password), "250 OK").await
+    if self.open {
+      return Ok(());
+    }
+
+    self
+      .send(&format!("AUTHENTICATE \"{}\"", self.password), "250 OK")
+      .await?;
+    self.open = true;
+    Ok(())
   }
 
   pub async fn quit(&mut self) -> Result<()> {
-    self.send("QUIT", "250 closing connection").await
+    if !self.open {
+      return Ok(());
+    }
+
+    self.send("QUIT", "250 closing connection").await?;
+    self.open = false;
+    Ok(())
   }
 
   pub async fn newnym(&mut self) -> Result<()> {
@@ -76,7 +92,9 @@ impl Command {
   }
 
   pub async fn liveness(&mut self) -> Result<()> {
-    self.send("GETINFO network-liveness", "250-network-liveness=up").await
+    self
+      .send("GETINFO network-liveness", "250-network-liveness=up")
+      .await
   }
 
   pub async fn wait_for_ready(&mut self) -> Result<()> {
