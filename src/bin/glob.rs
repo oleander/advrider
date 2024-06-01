@@ -1,6 +1,8 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 use std::collections::HashSet;
+use std::io::Write;
+use std::fs::OpenOptions;
 
 use async_std::path::PathBuf;
 use env_logger::Env;
@@ -11,7 +13,6 @@ use spider::configuration::Configuration;
 use futures::future::join_all;
 use anyhow::{bail, Context, Result};
 use spider::website::Website;
-use tokio::io::AsyncWriteExt;
 use html2text::from_read;
 use spider::tokio;
 
@@ -157,9 +158,6 @@ async fn main() -> Result<()> {
     while let Ok(res) = channel.recv().await {
       let count = counter.fetch_add(1, Ordering::SeqCst);
       let html = res.get_html();
-      let html_bytes = html.as_bytes();
-      let markdown = from_read(html_bytes, usize::MAX);
-      let markdown_bytes = markdown.as_bytes();
       let url = res.get_url();
       let page = url.split("/").last().unwrap().split("-").last().unwrap();
 
@@ -170,60 +168,33 @@ async fn main() -> Result<()> {
 
       if opt.only_print_urls {
         continue;
-      } else if markdown_bytes.len() == 0 {
-        log::warn!("[{}] Skipping empty page #{}", count, page);
-        log::warn!("[{}] Will rotate Tor proxy", count);
-        refresh_all_proxies(opt.controllers.clone()).await;
-        continue;
       }
 
       let doc = scraper::Html::parse_document(&html);
       let selector = scraper::Selector::parse("a.PreviewTooltip").unwrap();
       for element in doc.select(&selector) {
         if let Some(href) = element.value().attr("href") {
-          let href_with_newline = format!("{}\n", href);
-          let b = href_with_newline.as_bytes();
+          // let href_with_newline = format!("{}\n", href);
+          // let b = href_with_newline.as_bytes();
 
-          tokio::fs::OpenOptions::new()
+          let mut file = OpenOptions::new()
+            .write(true)
             .append(true)
-            .create(true)
             .open("hrefs.txt")
-            .await
-            .context("Failed to open file")
-            .unwrap()
-            .write_all(b)
-            .await
-            .context("Failed to write to file")
             .unwrap();
+
+          if let Err(e) = writeln!(file, "{}", href) {
+            eprintln!("Couldn't write to file: {}", e);
+          }
         }
       }
 
-      log::info!("[{}] Received {} bytes from page #{}", count, markdown_bytes.len(), page);
-
-      let output_file = format!("page-{}.md", page);
-      let dir = opt.output_dir.clone();
-      let output_path = dir.join(output_file);
-
-      tokio::fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .open(output_path.clone())
-        .await
-        .context("Failed to open file")
-        .unwrap()
-        .write_all(markdown_bytes)
-        .await
-        .context("Failed to write to file")
-        .unwrap();
-
-      log::info!("[{}] Wrote {} bytes to {}", count, markdown_bytes.len(), output_path.display());
-
       let end_page = format!("Page {} of {} ", page, page);
-      if markdown.contains(&end_page) {
+      if html.contains(&end_page) {
         return log::warn!("Reached the end of the thread: {} of {}", page, page);
       } else if count % rotate_proxy_every == 0 && count > 0 {
         log::warn!("[{}] Resetting Tor proxy connection", count);
-        refresh_all_proxies(opt.controllers.clone()).await;
+        // refresh_all_proxies(opt.controllers.clone()).await;
       }
 
       if count >= opt.page_limit as usize {

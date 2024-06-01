@@ -9,8 +9,8 @@ name = "advrider"
 [dependencies]
 spider = { version = "=1.93.28", features = ["socks", "cache", "cache_mem", "ua_generator",  "budget", "glob"] }
 
-llm-chain-openai = "0.13.0"
-llm-chain = "*"
+# llm-chain-openai = "0.13.0"
+# llm-chain = "*"
 
 reqwest = { version = "0.12.4", features = ["json", "socks"] }
 serde = { version = "1.0.198", features = ["derive"] }
